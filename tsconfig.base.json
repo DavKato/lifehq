@@ -1,0 +1,12 @@
+{
+	"compilerOptions": {
+		"target": "ES2022",
+		"strict": true,
+		"baseUrl": ".",
+		"skipLibCheck": true,
+		"esModuleInterop": true,
+		"paths": {
+			"@lifehq/shared/*": ["packages/shared/src/*"]
+		}
+	}
+}
