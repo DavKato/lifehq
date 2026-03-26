@@ -1,0 +1,68 @@
+services:
+    postgres:
+        image: postgres:18-alpine
+        environment:
+            POSTGRES_USER: lifehq
+            POSTGRES_PASSWORD: dev
+            POSTGRES_DB: lifehq
+        ports:
+            - '5432:5432'
+        volumes:
+            - postgres_data:/var/lib/postgresql/data
+        healthcheck:
+            test: ['CMD-SHELL', 'pg_isready -U lifehq']
+            interval: 5s
+            timeout: 5s
+            retries: 5
+
+    api:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        command: ['pnpm', '--filter', 'api', 'dev']
+        ports:
+            - '3001:3001'
+        env_file:
+            - .env
+        environment:
+            DATABASE_URL: postgresql://lifehq:dev@postgres:5432/lifehq
+        depends_on:
+            postgres:
+                condition: service_healthy
+        develop:
+            watch:
+                - action: sync
+                  path: ./apps/api
+                  target: /app/apps/api
+                - action: sync
+                  path: ./packages/shared
+                  target: /app/packages/shared
+                - action: rebuild
+                  path: ./pnpm-lock.yaml
+
+    web:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        command: ['pnpm', '--filter', 'web', 'dev']
+        ports:
+            - '3000:3000'
+        env_file:
+            - .env
+        environment:
+            API_URL: http://api:3001
+        depends_on:
+            - api
+        develop:
+            watch:
+                - action: sync
+                  path: ./apps/web
+                  target: /app/apps/web
+                - action: sync
+                  path: ./packages/shared
+                  target: /app/packages/shared
+                - action: rebuild
+                  path: ./pnpm-lock.yaml
+
+volumes:
+    postgres_data:

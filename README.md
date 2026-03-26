@@ -33,6 +33,13 @@ lifehq/
 └── infra/            # AWS CDK stacks
 ```
 
+## Local Development
+
+| Context | Command |
+|---------|---------|
+| Docker | `docker compose watch` |
+| Host | `docker compose up postgres` && `pnpm --filter api dev` && `pnpm --filter web dev` |
+
 ## Architecture
 
 - **Domain-driven design** with service layer for business logic
