@@ -43,7 +43,7 @@ export default async function globalSetup() {
 	await sql`
 		INSERT INTO session (id, token, expires_at, created_at, updated_at, user_id)
 		VALUES ('test-session-1', ${TEST_TOKEN}, NOW() + INTERVAL '1 day', NOW(), NOW(), 'test-user-1')
-		ON CONFLICT (id) DO NOTHING
+		ON CONFLICT (id) DO UPDATE SET expires_at = NOW() + INTERVAL '1 day', updated_at = NOW()
 	`;
 
 	await sql.end();

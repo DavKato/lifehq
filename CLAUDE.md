@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-pnpm lint / pnpm lint:fix                  # Biome (runs across all workspaces from root)
+pnpm lint:fix                  # Biome (runs across all workspaces from root)
 pnpm --filter api db:generate              # Generate Drizzle migrations after schema changes
 pnpm --filter api db:migrate               # Run pending migrations
 pnpm --filter api db:seed                  # Seed the database
@@ -14,6 +14,30 @@ pnpm --filter web build                    # Next.js production build
 ```
 
 See README.md for development startup commands.
+
+Always run `pnpm lint:fix` before staging any changes.
+
+## Browser automation (playwright-cli)
+
+The app uses Google OAuth so protected routes (`/dashboard`, `/subscriptions`) require a real session. Use the test auth setup to inject one:
+
+```bash
+pnpm auth:setup                                   # create test user + session in DB, write e2e/.auth/session.json
+playwright-cli open http://localhost:3000
+playwright-cli state-load e2e/.auth/session.json  # inject session cookie
+playwright-cli goto http://localhost:3000/dashboard
+```
+
+- Test user: `test@lifehq.dev` (name: `Test User`), household ID `00000000-0000-0000-0000-000000000001`
+- Session expires after 1 day — re-run `pnpm auth:setup` to refresh it
+- Running `pnpm test:e2e` deletes `e2e/.auth/` via teardown — re-run `pnpm auth:setup` afterwards if needed
+
+**Temporary files:** Save all screenshots and other scratch output to `.claude-temp/` (gitignored). Delete the directory when the session is done:
+```bash
+playwright-cli screenshot --filename=.claude-temp/my-screenshot.png
+# ... when done:
+rm -rf .claude-temp/
+```
 
 ## Architecture
 
@@ -26,6 +50,7 @@ See `docs/ARCHITECTURE.md` for the full architecture spec. Key rules:
 ### Shared package (`@lifehq/shared`)
 
 The `packages/shared` package is the source of truth for:
+
 - DB schema and Drizzle types (`@lifehq/shared/db`)
 - tRPC primitives — `router`, `publicProcedure`, `protectedProcedure`, `createContext` (`@lifehq/shared/trpc`)
 - `Session` type: `{ userId, householdId, role }` (`@lifehq/shared/session`)

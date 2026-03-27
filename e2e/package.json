@@ -3,6 +3,7 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
+		"auth:setup": "node --experimental-strip-types scripts/setup.ts",
 		"test": "playwright test",
 		"test:ui": "playwright test --ui"
 	},
