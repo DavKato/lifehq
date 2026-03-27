@@ -1,88 +1,20 @@
 "use client";
 
-import type { Category } from "@lifehq/shared/db/schema";
-import { DollarSign, LayoutList, Pencil, Plus, Trash2 } from "lucide-react";
+import { LayoutList, Plus } from "lucide-react";
 import { useState } from "react";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-	DialogTrigger,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@/components/ui/select";
+import { Card, CardContent } from "@/components/ui/card";
 import { api } from "@/lib/api";
-
-type SubItem = {
-	id: string;
-	name: string;
-	price: string;
-	billingCycle: "monthly" | "yearly";
-	renewalDate: string;
-	categoryId: string | null;
-	category: Category | null;
-};
-
-function SkeletonCard() {
-	return (
-		<Card>
-			<CardContent className="flex items-center justify-between p-4">
-				<div className="space-y-2">
-					<div className="h-4 w-32 rounded bg-muted animate-pulse" />
-					<div className="h-3 w-48 rounded bg-muted animate-pulse" />
-				</div>
-				<div className="h-6 w-16 rounded bg-muted animate-pulse" />
-			</CardContent>
-		</Card>
-	);
-}
-
-function PriceInput({
-	id,
-	name,
-	defaultValue,
-	placeholder,
-}: {
-	id: string;
-	name: string;
-	defaultValue?: string;
-	placeholder?: string;
-}) {
-	return (
-		<div className="flex items-center rounded-md border border-input bg-background ring-offset-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
-			<span className="select-none pl-3 text-sm text-muted-foreground">
-				$
-			</span>
-			<input
-				id={id}
-				name={name}
-				type="number"
-				step="0.01"
-				min="0"
-				defaultValue={defaultValue}
-				placeholder={placeholder ?? "0.00"}
-				required
-				className="w-full bg-transparent py-2 pl-1 pr-3 text-sm outline-none"
-			/>
-		</div>
-	);
-}
+import { AddSubscriptionDialog } from "./AddSubscriptionDialog";
+import { DeleteConfirmationDialog } from "./DeleteConfirmationDialog";
+import { EditSubscriptionDialog } from "./EditSubscriptionDialog";
+import { SubscriptionAnalytics } from "./SubscriptionAnalytics";
+import { SubscriptionItem } from "./SubscriptionItem";
+import { SubscriptionListSkeleton } from "./SubscriptionListSkeleton";
+import type { SubItem } from "./types";
 
 export function SubscriptionList() {
-	const [isOpen, setIsOpen] = useState(false);
+	const [isAddOpen, setIsAddOpen] = useState(false);
 	const [editingSub, setEditingSub] = useState<SubItem | null>(null);
 	const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -90,465 +22,51 @@ export function SubscriptionList() {
 	const categoriesQuery = api.subscription.categories.useQuery();
 	const analyticsQuery = api.subscription.analytics.useQuery();
 
-	const utils = api.useUtils();
-
-	const createMutation = api.subscription.create.useMutation({
-		onSuccess: () => {
-			setIsOpen(false);
-			utils.subscription.list.invalidate();
-			utils.subscription.analytics.invalidate();
-			toast.success("Subscription added");
-		},
-		onError: (err) => {
-			toast.error(`Failed to add subscription: ${err.message}`);
-		},
-	});
-
-	const deleteMutation = api.subscription.delete.useMutation({
-		onSuccess: () => {
-			setDeletingId(null);
-			utils.subscription.list.invalidate();
-			utils.subscription.analytics.invalidate();
-			toast.success("Subscription deleted");
-		},
-		onError: (err) => {
-			toast.error(`Failed to delete subscription: ${err.message}`);
-		},
-	});
-
-	const updateMutation = api.subscription.update.useMutation({
-		onSuccess: () => {
-			setEditingSub(null);
-			utils.subscription.list.invalidate();
-			utils.subscription.analytics.invalidate();
-			toast.success("Subscription updated");
-		},
-		onError: (err) => {
-			toast.error(`Failed to update subscription: ${err.message}`);
-		},
-	});
-
-	type SubscriptionData = NonNullable<typeof subscriptionsQuery.data>[number];
+	if (subscriptionsQuery.isLoading) {
+		return <SubscriptionListSkeleton />;
+	}
 
 	const subscriptions = subscriptionsQuery.data;
 	const categories = categoriesQuery.data;
 	const analytics = analyticsQuery.data;
-	const isLoading = subscriptionsQuery.isLoading;
-
-	if (isLoading) {
-		return (
-			<div className="space-y-6">
-				<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-					{[0, 1, 2].map((i) => (
-						<Card key={i}>
-							<CardHeader className="pb-2">
-								<div className="h-3 w-28 rounded bg-muted animate-pulse" />
-							</CardHeader>
-							<CardContent>
-								<div className="h-8 w-20 rounded bg-muted animate-pulse" />
-							</CardContent>
-						</Card>
-					))}
-				</div>
-				<div className="space-y-4">
-					{[0, 1, 2].map((i) => (
-						<SkeletonCard key={i} />
-					))}
-				</div>
-			</div>
-		);
-	}
 
 	return (
 		<>
-			{/* Edit Dialog */}
-			<Dialog
-				open={!!editingSub}
-				onOpenChange={(open) => {
-					if (!open) setEditingSub(null);
-				}}
-			>
-				<DialogContent>
-					<DialogHeader>
-						<DialogTitle>Edit Subscription</DialogTitle>
-					</DialogHeader>
-					{editingSub && (
-						<form
-							onSubmit={(e) => {
-								e.preventDefault();
-								const formData = new FormData(e.currentTarget);
-								const categoryId = formData.get(
-									"categoryId",
-								) as string;
-								updateMutation.mutate({
-									id: editingSub.id,
-									data: {
-										name: formData.get("name") as string,
-										price: parseFloat(
-											formData.get("price") as string,
-										),
-										billingCycle: formData.get(
-											"billingCycle",
-										) as "monthly" | "yearly",
-										renewalDate: formData.get(
-											"renewalDate",
-										) as string,
-										categoryId: categoryId || undefined,
-									},
-								});
-							}}
-							className="space-y-4"
-						>
-							<div className="space-y-2">
-								<Label htmlFor="edit-name">Name</Label>
-								<Input
-									id="edit-name"
-									name="name"
-									defaultValue={editingSub.name}
-									required
-								/>
-							</div>
-							<div className="space-y-2">
-								<Label htmlFor="edit-price">Price</Label>
-								<PriceInput
-									id="edit-price"
-									name="price"
-									defaultValue={parseFloat(
-										editingSub.price,
-									).toFixed(2)}
-								/>
-							</div>
-							<div className="space-y-2">
-								<Label htmlFor="edit-billingCycle">
-									Billing Cycle
-								</Label>
-								<Select
-									name="billingCycle"
-									defaultValue={editingSub.billingCycle}
-								>
-									<SelectTrigger>
-										<SelectValue placeholder="Select cycle" />
-									</SelectTrigger>
-									<SelectContent>
-										<SelectItem value="monthly">
-											Monthly
-										</SelectItem>
-										<SelectItem value="yearly">
-											Yearly
-										</SelectItem>
-									</SelectContent>
-								</Select>
-							</div>
-							<div className="space-y-2">
-								<Label htmlFor="edit-renewalDate">
-									Next Renewal
-								</Label>
-								<Input
-									id="edit-renewalDate"
-									name="renewalDate"
-									type="date"
-									defaultValue={editingSub.renewalDate}
-									required
-								/>
-							</div>
-							<div className="space-y-2">
-								<Label htmlFor="edit-categoryId">
-									Category
-								</Label>
-								<Select
-									name="categoryId"
-									defaultValue={editingSub.categoryId ?? ""}
-								>
-									<SelectTrigger>
-										<SelectValue placeholder="Select category" />
-									</SelectTrigger>
-									<SelectContent>
-										{categories?.map((cat: Category) => (
-											<SelectItem
-												key={cat.id}
-												value={cat.id}
-											>
-												{cat.name}
-											</SelectItem>
-										))}
-									</SelectContent>
-								</Select>
-							</div>
-							<Button
-								type="submit"
-								className="w-full"
-								disabled={updateMutation.isPending}
-							>
-								{updateMutation.isPending
-									? "Saving..."
-									: "Save Changes"}
-							</Button>
-						</form>
-					)}
-				</DialogContent>
-			</Dialog>
-
-			{/* Delete Confirmation Dialog */}
-			<Dialog
-				open={!!deletingId}
-				onOpenChange={(open) => {
-					if (!open) setDeletingId(null);
-				}}
-			>
-				<DialogContent>
-					<DialogHeader>
-						<DialogTitle>Delete subscription?</DialogTitle>
-						<DialogDescription>
-							This will permanently remove the subscription. This
-							action cannot be undone.
-						</DialogDescription>
-					</DialogHeader>
-					<DialogFooter>
-						<Button
-							variant="outline"
-							onClick={() => setDeletingId(null)}
-						>
-							Cancel
-						</Button>
-						<Button
-							variant="destructive"
-							disabled={deleteMutation.isPending}
-							onClick={() => {
-								if (deletingId)
-									deleteMutation.mutate({ id: deletingId });
-							}}
-						>
-							{deleteMutation.isPending
-								? "Deleting..."
-								: "Delete"}
-						</Button>
-					</DialogFooter>
-				</DialogContent>
-			</Dialog>
+			<EditSubscriptionDialog
+				sub={editingSub}
+				onClose={() => setEditingSub(null)}
+				categories={categories}
+			/>
+			<DeleteConfirmationDialog
+				id={deletingId}
+				onClose={() => setDeletingId(null)}
+			/>
 
 			<div className="space-y-6">
-				<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-					<Card>
-						<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-							<CardTitle className="text-sm font-medium">
-								Monthly Spending
-							</CardTitle>
-							<DollarSign className="h-4 w-4 text-muted-foreground" />
-						</CardHeader>
-						<CardContent>
-							<div className="text-2xl font-bold">
-								${analytics?.totalMonthly.toFixed(2) ?? "0.00"}
-							</div>
-							<p className="text-xs text-muted-foreground">
-								per month
-							</p>
-						</CardContent>
-					</Card>
-					<Card>
-						<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-							<CardTitle className="text-sm font-medium">
-								Yearly Spending
-							</CardTitle>
-							<DollarSign className="h-4 w-4 text-muted-foreground" />
-						</CardHeader>
-						<CardContent>
-							<div className="text-2xl font-bold">
-								${analytics?.totalYearly.toFixed(2) ?? "0.00"}
-							</div>
-							<p className="text-xs text-muted-foreground">
-								per year
-							</p>
-						</CardContent>
-					</Card>
-					<Card>
-						<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-							<CardTitle className="text-sm font-medium">
-								Active Subscriptions
-							</CardTitle>
-							<LayoutList className="h-4 w-4 text-muted-foreground" />
-						</CardHeader>
-						<CardContent>
-							<div className="text-2xl font-bold">
-								{subscriptions?.length ?? 0}
-							</div>
-							<p className="text-xs text-muted-foreground">
-								subscriptions tracked
-							</p>
-						</CardContent>
-					</Card>
-				</div>
+				<SubscriptionAnalytics
+					analytics={analytics}
+					count={subscriptions?.length ?? 0}
+				/>
 
 				<div className="flex items-center justify-between">
 					<h2 className="text-lg font-semibold">
 						Your Subscriptions
 					</h2>
-					<Dialog open={isOpen} onOpenChange={setIsOpen}>
-						<DialogTrigger asChild>
-							<Button>
-								<Plus className="mr-2 h-4 w-4" />
-								Add Subscription
-							</Button>
-						</DialogTrigger>
-						<DialogContent>
-							<DialogHeader>
-								<DialogTitle>Add Subscription</DialogTitle>
-							</DialogHeader>
-							<form
-								onSubmit={(e) => {
-									e.preventDefault();
-									const formData = new FormData(
-										e.currentTarget,
-									);
-									createMutation.mutate({
-										name: formData.get("name") as string,
-										price: parseFloat(
-											formData.get("price") as string,
-										),
-										billingCycle: formData.get(
-											"billingCycle",
-										) as "monthly" | "yearly",
-										renewalDate: formData.get(
-											"renewalDate",
-										) as string,
-										categoryId:
-											(formData.get(
-												"categoryId",
-											) as string) || undefined,
-									});
-								}}
-								className="space-y-4"
-							>
-								<div className="space-y-2">
-									<Label htmlFor="name">Name</Label>
-									<Input
-										id="name"
-										name="name"
-										placeholder="Netflix"
-										required
-									/>
-								</div>
-								<div className="space-y-2">
-									<Label htmlFor="price">Price</Label>
-									<PriceInput
-										id="price"
-										name="price"
-										placeholder="15.99"
-									/>
-								</div>
-								<div className="space-y-2">
-									<Label htmlFor="billingCycle">
-										Billing Cycle
-									</Label>
-									<Select
-										name="billingCycle"
-										defaultValue="monthly"
-									>
-										<SelectTrigger>
-											<SelectValue placeholder="Select cycle" />
-										</SelectTrigger>
-										<SelectContent>
-											<SelectItem value="monthly">
-												Monthly
-											</SelectItem>
-											<SelectItem value="yearly">
-												Yearly
-											</SelectItem>
-										</SelectContent>
-									</Select>
-								</div>
-								<div className="space-y-2">
-									<Label htmlFor="renewalDate">
-										Next Renewal
-									</Label>
-									<Input
-										id="renewalDate"
-										name="renewalDate"
-										type="date"
-										required
-									/>
-								</div>
-								<div className="space-y-2">
-									<Label htmlFor="categoryId">Category</Label>
-									<Select name="categoryId">
-										<SelectTrigger>
-											<SelectValue placeholder="Select category" />
-										</SelectTrigger>
-										<SelectContent>
-											{categories?.map(
-												(cat: Category) => (
-													<SelectItem
-														key={cat.id}
-														value={cat.id}
-													>
-														{cat.name}
-													</SelectItem>
-												),
-											)}
-										</SelectContent>
-									</Select>
-								</div>
-								<Button
-									type="submit"
-									className="w-full"
-									disabled={createMutation.isPending}
-								>
-									{createMutation.isPending
-										? "Adding..."
-										: "Add Subscription"}
-								</Button>
-							</form>
-						</DialogContent>
-					</Dialog>
+					<AddSubscriptionDialog
+						open={isAddOpen}
+						onOpenChange={setIsAddOpen}
+						categories={categories}
+					/>
 				</div>
 
 				<div className="space-y-4">
-					{subscriptions?.map((sub: SubscriptionData) => (
-						<Card key={sub.id}>
-							<CardContent className="flex items-center justify-between p-4">
-								<div className="space-y-1">
-									<p className="font-medium">{sub.name}</p>
-									<div className="flex items-center gap-4 text-sm text-muted-foreground">
-										<span>
-											{sub.category?.name ??
-												"Uncategorized"}
-										</span>
-										<span>{sub.billingCycle}</span>
-										<span>
-											Renews:{" "}
-											{new Date(
-												sub.renewalDate,
-											).toLocaleDateString()}
-										</span>
-									</div>
-								</div>
-								<div className="flex items-center gap-4">
-									<div className="text-right">
-										<p className="text-lg font-semibold">
-											${parseFloat(sub.price).toFixed(2)}
-										</p>
-										<p className="text-xs text-muted-foreground">
-											/{sub.billingCycle}
-										</p>
-									</div>
-									<Button
-										variant="ghost"
-										size="icon"
-										onClick={() =>
-											setEditingSub(sub as SubItem)
-										}
-									>
-										<Pencil className="h-4 w-4" />
-									</Button>
-									<Button
-										variant="ghost"
-										size="icon"
-										onClick={() => setDeletingId(sub.id)}
-									>
-										<Trash2 className="h-4 w-4 text-destructive" />
-									</Button>
-								</div>
-							</CardContent>
-						</Card>
+					{subscriptions?.map((sub) => (
+						<SubscriptionItem
+							key={sub.id}
+							sub={sub as SubItem}
+							onEdit={setEditingSub}
+							onDelete={setDeletingId}
+						/>
 					))}
 					{subscriptions?.length === 0 && (
 						<Card>
@@ -563,7 +81,7 @@ export function SubscriptionList() {
 										tracking your spending
 									</p>
 								</div>
-								<Button onClick={() => setIsOpen(true)}>
+								<Button onClick={() => setIsAddOpen(true)}>
 									<Plus className="mr-2 h-4 w-4" />
 									Add Subscription
 								</Button>
