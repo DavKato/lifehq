@@ -48,6 +48,13 @@ yarn-error.log*
 .claude/
 
 # =========================
+# Playwright
+# =========================
+.playwright-cli/
+e2e/test-results/
+e2e/.auth/
+
+# =========================
 # Vercel
 # =========================
 .vercel
