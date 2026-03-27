@@ -4,9 +4,14 @@ import type { FastifyRequest } from "fastify";
 import Fastify from "fastify";
 import { auth } from "./auth";
 import { config } from "./config/env";
+import { runMigrations } from "./db/migrate";
+import { runSeed } from "./db/seed";
 import { getSession } from "./services/authService";
 import { createContext } from "./trpc";
 import { appRouter } from "./trpc/router";
+
+await runMigrations();
+await runSeed();
 
 const app = Fastify();
 

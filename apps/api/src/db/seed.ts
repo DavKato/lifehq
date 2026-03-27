@@ -14,19 +14,20 @@ const defaultCategories = [
 	"Other",
 ];
 
-async function seed() {
+export async function runSeed() {
 	console.log("Seeding categories...");
-
 	for (const name of defaultCategories) {
 		await db.insert(categories).values({ name }).onConflictDoNothing();
 	}
-
 	console.log("Categories seeded!");
 }
 
-seed()
-	.then(() => process.exit(0))
-	.catch((err) => {
-		console.error(err);
-		process.exit(1);
-	});
+// Allow running directly: pnpm --filter api db:seed
+if (process.argv[1]?.endsWith("seed.ts")) {
+	runSeed()
+		.then(() => process.exit(0))
+		.catch((err) => {
+			console.error(err);
+			process.exit(1);
+		});
+}
