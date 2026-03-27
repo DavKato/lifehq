@@ -1,6 +1,14 @@
 import { CheckSquare, CreditCard, FileText } from "lucide-react";
 import Link from "next/link";
 
+function ComingSoonBadge() {
+	return (
+		<span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+			Coming soon
+		</span>
+	);
+}
+
 export default function DashboardPage() {
 	return (
 		<div className="container mx-auto py-8">
@@ -17,18 +25,28 @@ export default function DashboardPage() {
 						</p>
 					</div>
 				</Link>
-				<div className="rounded-lg border bg-card p-6 shadow-sm">
-					<FileText className="mb-4 h-10 w-10 text-muted-foreground" />
-					<h2 className="mb-2 text-xl font-semibold">Documents</h2>
+				<div className="cursor-not-allowed rounded-lg border bg-muted/40 p-6 opacity-60 shadow-sm">
+					<div className="mb-4 flex items-start justify-between">
+						<FileText className="h-10 w-10 text-muted-foreground" />
+						<ComingSoonBadge />
+					</div>
+					<h2 className="mb-2 text-xl font-semibold text-muted-foreground">
+						Documents
+					</h2>
 					<p className="text-sm text-muted-foreground">
-						Coming soon - Store household documents securely
+						Store household documents securely
 					</p>
 				</div>
-				<div className="rounded-lg border bg-card p-6 shadow-sm">
-					<CheckSquare className="mb-4 h-10 w-10 text-muted-foreground" />
-					<h2 className="mb-2 text-xl font-semibold">Tasks</h2>
+				<div className="cursor-not-allowed rounded-lg border bg-muted/40 p-6 opacity-60 shadow-sm">
+					<div className="mb-4 flex items-start justify-between">
+						<CheckSquare className="h-10 w-10 text-muted-foreground" />
+						<ComingSoonBadge />
+					</div>
+					<h2 className="mb-2 text-xl font-semibold text-muted-foreground">
+						Tasks
+					</h2>
 					<p className="text-sm text-muted-foreground">
-						Coming soon - Manage household tasks
+						Manage household tasks and chores
 					</p>
 				</div>
 			</div>

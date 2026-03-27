@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Toaster } from "sonner";
 import { TRPCProvider } from "@/lib/trpc";
 import "./globals.css";
 
@@ -16,6 +17,7 @@ export default function RootLayout({
 		<html lang="en">
 			<body className="antialiased">
 				<TRPCProvider>{children}</TRPCProvider>
+				<Toaster richColors position="top-right" />
 			</body>
 		</html>
 	);

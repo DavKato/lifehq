@@ -1,5 +1,6 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { Navbar } from "@/components/layout/Navbar";
 
 export default async function AppLayout({
 	children,
@@ -22,5 +23,10 @@ export default async function AppLayout({
 
 	if (!isAuthenticated) redirect("/login");
 
-	return <>{children}</>;
+	return (
+		<div className="flex min-h-screen flex-col">
+			<Navbar />
+			<main className="flex-1">{children}</main>
+		</div>
+	);
 }

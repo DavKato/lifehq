@@ -9,12 +9,13 @@ import {
 
 export default function LoginPage() {
 	return (
-		<div className="flex min-h-screen items-center justify-center">
-			<Card className="w-full max-w-sm">
+		<div className="flex min-h-screen items-center justify-center bg-muted/40">
+			<Card className="w-full max-w-sm shadow-md">
 				<CardHeader className="text-center">
 					<CardTitle className="text-2xl">LifeHQ</CardTitle>
 					<CardDescription>
-						Sign in to manage your household
+						One place to manage subscriptions, documents, and tasks
+						for your household
 					</CardDescription>
 				</CardHeader>
 				<CardContent>
