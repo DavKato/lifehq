@@ -1,7 +1,7 @@
 "use client";
 
 import type { Category } from "@lifehq/shared/db/schema";
-import { DollarSign, Plus, Trash2 } from "lucide-react";
+import { DollarSign, Pencil, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,8 +23,19 @@ import {
 } from "@/components/ui/select";
 import { api } from "@/lib/api";
 
+type SubItem = {
+	id: string;
+	name: string;
+	price: string;
+	billingCycle: "monthly" | "yearly";
+	renewalDate: string;
+	categoryId: string | null;
+	category: Category | null;
+};
+
 export function SubscriptionList() {
 	const [isOpen, setIsOpen] = useState(false);
+	const [editingSub, setEditingSub] = useState<SubItem | null>(null);
 
 	const subscriptionsQuery = api.subscription.list.useQuery();
 	const categoriesQuery = api.subscription.categories.useQuery();
@@ -47,6 +58,16 @@ export function SubscriptionList() {
 		},
 	});
 
+	const updateMutation = api.subscription.update.useMutation({
+		onSuccess: () => {
+			setEditingSub(null);
+			utils.subscription.list.invalidate();
+			utils.subscription.analytics.invalidate();
+		},
+	});
+
+	type SubscriptionData = NonNullable<typeof subscriptionsQuery.data>[number];
+
 	const subscriptions = subscriptionsQuery.data;
 	const categories = categoriesQuery.data;
 	const analytics = analyticsQuery.data;
@@ -57,121 +78,74 @@ export function SubscriptionList() {
 	}
 
 	return (
-		<div className="space-y-6">
-			<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-				<Card>
-					<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-						<CardTitle className="text-sm font-medium">
-							Monthly Spending
-						</CardTitle>
-						<DollarSign className="h-4 w-4 text-muted-foreground" />
-					</CardHeader>
-					<CardContent>
-						<div className="text-2xl font-bold">
-							${analytics?.totalMonthly.toFixed(2) ?? "0.00"}
-						</div>
-						<p className="text-xs text-muted-foreground">
-							per month
-						</p>
-					</CardContent>
-				</Card>
-				<Card>
-					<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-						<CardTitle className="text-sm font-medium">
-							Yearly Spending
-						</CardTitle>
-						<DollarSign className="h-4 w-4 text-muted-foreground" />
-					</CardHeader>
-					<CardContent>
-						<div className="text-2xl font-bold">
-							${analytics?.totalYearly.toFixed(2) ?? "0.00"}
-						</div>
-						<p className="text-xs text-muted-foreground">
-							per year
-						</p>
-					</CardContent>
-				</Card>
-				<Card>
-					<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-						<CardTitle className="text-sm font-medium">
-							Active Subscriptions
-						</CardTitle>
-						<Plus className="h-4 w-4 text-muted-foreground" />
-					</CardHeader>
-					<CardContent>
-						<div className="text-2xl font-bold">
-							{subscriptions?.length ?? 0}
-						</div>
-						<p className="text-xs text-muted-foreground">
-							subscriptions tracked
-						</p>
-					</CardContent>
-				</Card>
-			</div>
-
-			<div className="flex items-center justify-between">
-				<h2 className="text-lg font-semibold">Your Subscriptions</h2>
-				<Dialog open={isOpen} onOpenChange={setIsOpen}>
-					<DialogTrigger asChild>
-						<Button>
-							<Plus className="mr-2 h-4 w-4" />
-							Add Subscription
-						</Button>
-					</DialogTrigger>
-					<DialogContent>
-						<DialogHeader>
-							<DialogTitle>Add Subscription</DialogTitle>
-						</DialogHeader>
+		<>
+			{/* Edit Dialog */}
+			<Dialog
+				open={!!editingSub}
+				onOpenChange={(open) => {
+					if (!open) setEditingSub(null);
+				}}
+			>
+				<DialogContent>
+					<DialogHeader>
+						<DialogTitle>Edit Subscription</DialogTitle>
+					</DialogHeader>
+					{editingSub && (
 						<form
 							onSubmit={(e) => {
 								e.preventDefault();
 								const formData = new FormData(e.currentTarget);
-								createMutation.mutate({
-									name: formData.get("name") as string,
-									price: parseFloat(
-										formData.get("price") as string,
-									),
-									billingCycle: formData.get(
-										"billingCycle",
-									) as "monthly" | "yearly",
-									renewalDate: formData.get(
-										"renewalDate",
-									) as string,
-									categoryId:
-										(formData.get(
-											"categoryId",
-										) as string) || undefined,
+								const categoryId = formData.get(
+									"categoryId",
+								) as string;
+								updateMutation.mutate({
+									id: editingSub.id,
+									data: {
+										name: formData.get("name") as string,
+										price: parseFloat(
+											formData.get("price") as string,
+										),
+										billingCycle: formData.get(
+											"billingCycle",
+										) as "monthly" | "yearly",
+										renewalDate: formData.get(
+											"renewalDate",
+										) as string,
+										categoryId: categoryId || undefined,
+									},
 								});
 							}}
 							className="space-y-4"
 						>
 							<div className="space-y-2">
-								<Label htmlFor="name">Name</Label>
+								<Label htmlFor="edit-name">Name</Label>
 								<Input
-									id="name"
+									id="edit-name"
 									name="name"
-									placeholder="Netflix"
+									defaultValue={editingSub.name}
 									required
 								/>
 							</div>
 							<div className="space-y-2">
-								<Label htmlFor="price">Price</Label>
+								<Label htmlFor="edit-price">Price</Label>
 								<Input
-									id="price"
+									id="edit-price"
 									name="price"
 									type="number"
 									step="0.01"
-									placeholder="15.99"
+									defaultValue={parseFloat(
+										editingSub.price,
+									).toFixed(2)}
 									required
 								/>
 							</div>
 							<div className="space-y-2">
-								<Label htmlFor="billingCycle">
+								<Label htmlFor="edit-billingCycle">
 									Billing Cycle
 								</Label>
 								<Select
 									name="billingCycle"
-									defaultValue="monthly"
+									defaultValue={editingSub.billingCycle}
 								>
 									<SelectTrigger>
 										<SelectValue placeholder="Select cycle" />
@@ -187,19 +161,27 @@ export function SubscriptionList() {
 								</Select>
 							</div>
 							<div className="space-y-2">
-								<Label htmlFor="renewalDate">
+								<Label htmlFor="edit-renewalDate">
 									Next Renewal
 								</Label>
 								<Input
-									id="renewalDate"
+									id="edit-renewalDate"
 									name="renewalDate"
 									type="date"
+									defaultValue={editingSub.renewalDate}
 									required
 								/>
 							</div>
 							<div className="space-y-2">
-								<Label htmlFor="categoryId">Category</Label>
-								<Select name="categoryId">
+								<Label htmlFor="edit-categoryId">
+									Category
+								</Label>
+								<Select
+									name="categoryId"
+									defaultValue={
+										editingSub.categoryId ?? ""
+									}
+								>
 									<SelectTrigger>
 										<SelectValue placeholder="Select category" />
 									</SelectTrigger>
@@ -218,26 +200,199 @@ export function SubscriptionList() {
 							<Button
 								type="submit"
 								className="w-full"
-								disabled={createMutation.isPending}
+								disabled={updateMutation.isPending}
 							>
-								{createMutation.isPending
-									? "Adding..."
-									: "Add Subscription"}
+								{updateMutation.isPending
+									? "Saving..."
+									: "Save Changes"}
 							</Button>
 						</form>
-					</DialogContent>
-				</Dialog>
-			</div>
+					)}
+				</DialogContent>
+			</Dialog>
 
-			<div className="space-y-4">
-				{subscriptions?.map(
-					(
-						sub: typeof subscriptionsQuery.data extends infer T
-							? T extends (infer U)[]
-								? U
-								: never
-							: never,
-					) => (
+			<div className="space-y-6">
+				<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+					<Card>
+						<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+							<CardTitle className="text-sm font-medium">
+								Monthly Spending
+							</CardTitle>
+							<DollarSign className="h-4 w-4 text-muted-foreground" />
+						</CardHeader>
+						<CardContent>
+							<div className="text-2xl font-bold">
+								${analytics?.totalMonthly.toFixed(2) ?? "0.00"}
+							</div>
+							<p className="text-xs text-muted-foreground">
+								per month
+							</p>
+						</CardContent>
+					</Card>
+					<Card>
+						<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+							<CardTitle className="text-sm font-medium">
+								Yearly Spending
+							</CardTitle>
+							<DollarSign className="h-4 w-4 text-muted-foreground" />
+						</CardHeader>
+						<CardContent>
+							<div className="text-2xl font-bold">
+								${analytics?.totalYearly.toFixed(2) ?? "0.00"}
+							</div>
+							<p className="text-xs text-muted-foreground">
+								per year
+							</p>
+						</CardContent>
+					</Card>
+					<Card>
+						<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+							<CardTitle className="text-sm font-medium">
+								Active Subscriptions
+							</CardTitle>
+							<Plus className="h-4 w-4 text-muted-foreground" />
+						</CardHeader>
+						<CardContent>
+							<div className="text-2xl font-bold">
+								{subscriptions?.length ?? 0}
+							</div>
+							<p className="text-xs text-muted-foreground">
+								subscriptions tracked
+							</p>
+						</CardContent>
+					</Card>
+				</div>
+
+				<div className="flex items-center justify-between">
+					<h2 className="text-lg font-semibold">
+						Your Subscriptions
+					</h2>
+					<Dialog open={isOpen} onOpenChange={setIsOpen}>
+						<DialogTrigger asChild>
+							<Button>
+								<Plus className="mr-2 h-4 w-4" />
+								Add Subscription
+							</Button>
+						</DialogTrigger>
+						<DialogContent>
+							<DialogHeader>
+								<DialogTitle>Add Subscription</DialogTitle>
+							</DialogHeader>
+							<form
+								onSubmit={(e) => {
+									e.preventDefault();
+									const formData = new FormData(
+										e.currentTarget,
+									);
+									createMutation.mutate({
+										name: formData.get("name") as string,
+										price: parseFloat(
+											formData.get("price") as string,
+										),
+										billingCycle: formData.get(
+											"billingCycle",
+										) as "monthly" | "yearly",
+										renewalDate: formData.get(
+											"renewalDate",
+										) as string,
+										categoryId:
+											(formData.get(
+												"categoryId",
+											) as string) || undefined,
+									});
+								}}
+								className="space-y-4"
+							>
+								<div className="space-y-2">
+									<Label htmlFor="name">Name</Label>
+									<Input
+										id="name"
+										name="name"
+										placeholder="Netflix"
+										required
+									/>
+								</div>
+								<div className="space-y-2">
+									<Label htmlFor="price">Price</Label>
+									<Input
+										id="price"
+										name="price"
+										type="number"
+										step="0.01"
+										placeholder="15.99"
+										required
+									/>
+								</div>
+								<div className="space-y-2">
+									<Label htmlFor="billingCycle">
+										Billing Cycle
+									</Label>
+									<Select
+										name="billingCycle"
+										defaultValue="monthly"
+									>
+										<SelectTrigger>
+											<SelectValue placeholder="Select cycle" />
+										</SelectTrigger>
+										<SelectContent>
+											<SelectItem value="monthly">
+												Monthly
+											</SelectItem>
+											<SelectItem value="yearly">
+												Yearly
+											</SelectItem>
+										</SelectContent>
+									</Select>
+								</div>
+								<div className="space-y-2">
+									<Label htmlFor="renewalDate">
+										Next Renewal
+									</Label>
+									<Input
+										id="renewalDate"
+										name="renewalDate"
+										type="date"
+										required
+									/>
+								</div>
+								<div className="space-y-2">
+									<Label htmlFor="categoryId">
+										Category
+									</Label>
+									<Select name="categoryId">
+										<SelectTrigger>
+											<SelectValue placeholder="Select category" />
+										</SelectTrigger>
+										<SelectContent>
+											{categories?.map(
+												(cat: Category) => (
+													<SelectItem
+														key={cat.id}
+														value={cat.id}
+													>
+														{cat.name}
+													</SelectItem>
+												),
+											)}
+										</SelectContent>
+									</Select>
+								</div>
+								<Button
+									type="submit"
+									className="w-full"
+									disabled={createMutation.isPending}
+								>
+									{createMutation.isPending
+										? "Adding..."
+										: "Add Subscription"}
+								</Button>
+							</form>
+						</DialogContent>
+					</Dialog>
+				</div>
+
+				<div className="space-y-4">
+					{subscriptions?.map((sub: SubscriptionData) => (
 						<Card key={sub.id}>
 							<CardContent className="flex items-center justify-between p-4">
 								<div className="space-y-1">
@@ -259,12 +414,22 @@ export function SubscriptionList() {
 								<div className="flex items-center gap-4">
 									<div className="text-right">
 										<p className="text-lg font-semibold">
-											${parseFloat(sub.price).toFixed(2)}
+											$
+											{parseFloat(sub.price).toFixed(2)}
 										</p>
 										<p className="text-xs text-muted-foreground">
 											/{sub.billingCycle}
 										</p>
 									</div>
+									<Button
+										variant="ghost"
+										size="icon"
+										onClick={() =>
+											setEditingSub(sub as SubItem)
+										}
+									>
+										<Pencil className="h-4 w-4" />
+									</Button>
 									<Button
 										variant="ghost"
 										size="icon"
@@ -280,21 +445,21 @@ export function SubscriptionList() {
 								</div>
 							</CardContent>
 						</Card>
-					),
-				)}
-				{subscriptions?.length === 0 && (
-					<Card>
-						<CardContent className="flex flex-col items-center justify-center py-8 text-center">
-							<p className="text-muted-foreground">
-								No subscriptions yet
-							</p>
-							<p className="text-sm text-muted-foreground">
-								Add your first subscription to get started
-							</p>
-						</CardContent>
-					</Card>
-				)}
+					))}
+					{subscriptions?.length === 0 && (
+						<Card>
+							<CardContent className="flex flex-col items-center justify-center py-8 text-center">
+								<p className="text-muted-foreground">
+									No subscriptions yet
+								</p>
+								<p className="text-sm text-muted-foreground">
+									Add your first subscription to get started
+								</p>
+							</CardContent>
+						</Card>
+					)}
+				</div>
 			</div>
-		</div>
+		</>
 	);
 }
