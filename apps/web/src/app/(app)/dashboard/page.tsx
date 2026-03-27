@@ -6,7 +6,7 @@ export default function DashboardPage() {
 		<div className="container mx-auto py-8">
 			<h1 className="mb-8 text-3xl font-bold">Dashboard</h1>
 			<div className="grid gap-6 md:grid-cols-3">
-				<Link href="/dashboard/subscriptions">
+				<Link href="/subscriptions">
 					<div className="rounded-lg border bg-card p-6 shadow-sm transition-colors hover:bg-accent">
 						<CreditCard className="mb-4 h-10 w-10 text-primary" />
 						<h2 className="mb-2 text-xl font-semibold">
