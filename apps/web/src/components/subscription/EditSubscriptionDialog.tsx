@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import {
 	Dialog,
 	DialogContent,
+	DialogDescription,
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
@@ -48,6 +49,10 @@ export function EditSubscriptionDialog({
 			<DialogContent>
 				<DialogHeader>
 					<DialogTitle>Edit Subscription</DialogTitle>
+					<DialogDescription>
+						Update the details or renewal date for this
+						subscription.
+					</DialogDescription>
 				</DialogHeader>
 				{sub && (
 					<form

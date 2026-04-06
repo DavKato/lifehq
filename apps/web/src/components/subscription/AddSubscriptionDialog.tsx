@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import {
 	Dialog,
 	DialogContent,
+	DialogDescription,
 	DialogHeader,
 	DialogTitle,
 	DialogTrigger,
@@ -50,6 +51,9 @@ export function AddSubscriptionDialog({
 			<DialogContent>
 				<DialogHeader>
 					<DialogTitle>Add Subscription</DialogTitle>
+					<DialogDescription>
+						Track a new recurring subscription and its renewal date.
+					</DialogDescription>
 				</DialogHeader>
 				<form
 					onSubmit={(e) => {
