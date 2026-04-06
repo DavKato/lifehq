@@ -1,5 +1,6 @@
 import { CheckSquare, CreditCard, FileText } from "lucide-react";
 import Link from "next/link";
+import { SubscriptionCardStats } from "@/components/subscription/SubscriptionCardStats";
 
 function ComingSoonBadge() {
 	return (
@@ -23,6 +24,7 @@ export default function DashboardPage() {
 						<p className="text-sm text-muted-foreground">
 							Track and manage your recurring subscriptions
 						</p>
+						<SubscriptionCardStats />
 					</div>
 				</Link>
 				<div className="cursor-not-allowed rounded-lg border bg-muted/40 p-6 opacity-60 shadow-sm">
