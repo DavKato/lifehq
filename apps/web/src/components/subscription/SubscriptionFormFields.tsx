@@ -1,4 +1,5 @@
 import type { Category } from "@lifehq/shared/db/schema";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -97,13 +98,10 @@ export function SubscriptionFormFields({
 				</Select>
 			</div>
 			<div className="space-y-2">
-				<Label htmlFor={`${pre}renewalDate`}>Next Renewal</Label>
-				<Input
-					id={`${pre}renewalDate`}
+				<Label>Next Renewal</Label>
+				<DatePicker
 					name="renewalDate"
-					type="date"
 					defaultValue={defaults?.renewalDate}
-					required
 				/>
 			</div>
 			<div className="space-y-2">
