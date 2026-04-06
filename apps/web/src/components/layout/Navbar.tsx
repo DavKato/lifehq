@@ -1,8 +1,16 @@
 "use client";
 
-import { CreditCard, Home, LayoutDashboard, LogOut } from "lucide-react";
+import {
+	CreditCard,
+	Home,
+	LayoutDashboard,
+	LogOut,
+	Moon,
+	Sun,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
 
@@ -15,6 +23,7 @@ export function Navbar() {
 	const pathname = usePathname();
 	const router = useRouter();
 	const { data: session } = authClient.useSession();
+	const { theme, setTheme } = useTheme();
 
 	const handleSignOut = async () => {
 		await authClient.signOut();
@@ -55,6 +64,18 @@ export function Navbar() {
 							{session.user.name || session.user.email}
 						</span>
 					)}
+					<Button
+						variant="ghost"
+						size="icon"
+						onClick={() =>
+							setTheme(theme === "dark" ? "light" : "dark")
+						}
+						className="text-muted-foreground"
+						aria-label="Toggle theme"
+					>
+						<Sun className="h-4 w-4 dark:hidden" />
+						<Moon className="hidden h-4 w-4 dark:block" />
+					</Button>
 					<Button
 						variant="ghost"
 						size="sm"
