@@ -8,6 +8,7 @@ import {
 	Dialog,
 	DialogContent,
 	DialogDescription,
+	DialogFooter,
 	DialogHeader,
 	DialogTitle,
 	DialogTrigger,
@@ -74,15 +75,23 @@ export function AddSubscriptionDialog({
 					className="space-y-4"
 				>
 					<SubscriptionFormFields categories={categories} />
-					<Button
-						type="submit"
-						className="w-full"
-						disabled={createMutation.isPending}
-					>
-						{createMutation.isPending
-							? "Adding..."
-							: "Add Subscription"}
-					</Button>
+					<DialogFooter>
+						<Button
+							type="button"
+							variant="outline"
+							onClick={() => onOpenChange(false)}
+						>
+							Cancel
+						</Button>
+						<Button
+							type="submit"
+							disabled={createMutation.isPending}
+						>
+							{createMutation.isPending
+								? "Adding..."
+								: "Add Subscription"}
+						</Button>
+					</DialogFooter>
 				</form>
 			</DialogContent>
 		</Dialog>

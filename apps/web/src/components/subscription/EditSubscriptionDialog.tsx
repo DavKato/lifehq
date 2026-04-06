@@ -7,6 +7,7 @@ import {
 	Dialog,
 	DialogContent,
 	DialogDescription,
+	DialogFooter,
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
@@ -86,15 +87,23 @@ export function EditSubscriptionDialog({
 							defaults={sub}
 							idPrefix="edit"
 						/>
-						<Button
-							type="submit"
-							className="w-full"
-							disabled={updateMutation.isPending}
-						>
-							{updateMutation.isPending
-								? "Saving..."
-								: "Save Changes"}
-						</Button>
+						<DialogFooter>
+							<Button
+								type="button"
+								variant="outline"
+								onClick={onClose}
+							>
+								Cancel
+							</Button>
+							<Button
+								type="submit"
+								disabled={updateMutation.isPending}
+							>
+								{updateMutation.isPending
+									? "Saving..."
+									: "Save Changes"}
+							</Button>
+						</DialogFooter>
 					</form>
 				)}
 			</DialogContent>
