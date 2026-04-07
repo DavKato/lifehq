@@ -8,6 +8,13 @@
 			"when": 1774508618474,
 			"tag": "0000_lethal_kylun",
 			"breakpoints": true
+		},
+		{
+			"idx": 1,
+			"version": "7",
+			"when": 1744070400000,
+			"tag": "0001_tasks_schema_update",
+			"breakpoints": true
 		}
 	]
 }

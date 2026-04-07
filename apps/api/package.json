@@ -13,7 +13,8 @@
 		"build": "tsc",
 		"db:generate": "node --env-file-if-exists=../../.env node_modules/.bin/drizzle-kit generate",
 		"db:migrate": "tsx --env-file-if-exists=../../.env src/db/migrate.ts",
-		"db:seed": "tsx --env-file-if-exists=../../.env src/db/seed.ts"
+		"db:seed": "tsx --env-file-if-exists=../../.env src/db/seed.ts",
+		"test": "vitest run"
 	},
 	"keywords": [],
 	"author": "",
@@ -31,6 +32,7 @@
 		"zod": "^4.3.6"
 	},
 	"devDependencies": {
-		"drizzle-kit": "^0.30.0"
+		"drizzle-kit": "^0.30.0",
+		"vitest": "^4.1.2"
 	}
 }

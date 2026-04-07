@@ -39,18 +39,15 @@ export default function DashboardPage() {
 						Store household documents securely
 					</p>
 				</div>
-				<div className="cursor-not-allowed rounded-lg border bg-muted/40 p-6 opacity-60 shadow-sm">
-					<div className="mb-4 flex items-start justify-between">
-						<CheckSquare className="h-10 w-10 text-muted-foreground" />
-						<ComingSoonBadge />
+				<Link href="/tasks">
+					<div className="rounded-lg border bg-card p-6 shadow-sm transition-colors hover:bg-accent">
+						<CheckSquare className="mb-4 h-10 w-10 text-primary" />
+						<h2 className="mb-2 text-xl font-semibold">Tasks</h2>
+						<p className="text-sm text-muted-foreground">
+							Manage household tasks and chores
+						</p>
 					</div>
-					<h2 className="mb-2 text-xl font-semibold text-muted-foreground">
-						Tasks
-					</h2>
-					<p className="text-sm text-muted-foreground">
-						Manage household tasks and chores
-					</p>
-				</div>
+				</Link>
 			</div>
 		</div>
 	);

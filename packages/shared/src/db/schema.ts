@@ -120,8 +120,11 @@ export const tasks = pgTable("tasks", {
 	title: varchar("title", { length: 255 }).notNull(),
 	description: text("description"),
 	assignedTo: text("assigned_to").references(() => user.id),
+	createdBy: text("created_by")
+		.notNull()
+		.references(() => user.id),
 	dueDate: date("due_date"),
-	completed: boolean("completed").notNull().default(false),
+	completedAt: timestamp("completed_at"),
 	householdId: uuid("household_id")
 		.notNull()
 		.references(() => households.id, { onDelete: "cascade" }),
@@ -150,7 +153,8 @@ export const documents = pgTable("documents", {
 
 export const userRelations = relations(user, ({ many }) => ({
 	memberships: many(householdMembers),
-	tasks: many(tasks),
+	assignedTasks: many(tasks, { relationName: "taskAssignee" }),
+	createdTasks: many(tasks, { relationName: "taskCreator" }),
 	documents: many(documents),
 }));
 
@@ -182,6 +186,23 @@ export const subscriptionRelations = relations(subscriptions, ({ one }) => ({
 	}),
 	household: one(households, {
 		fields: [subscriptions.householdId],
+		references: [households.id],
+	}),
+}));
+
+export const taskRelations = relations(tasks, ({ one }) => ({
+	assignee: one(user, {
+		fields: [tasks.assignedTo],
+		references: [user.id],
+		relationName: "taskAssignee",
+	}),
+	creator: one(user, {
+		fields: [tasks.createdBy],
+		references: [user.id],
+		relationName: "taskCreator",
+	}),
+	household: one(households, {
+		fields: [tasks.householdId],
 		references: [households.id],
 	}),
 }));
