@@ -1,10 +1,13 @@
 import {
+	complete,
 	create,
 	createTaskSchema,
 	deleteTaskSchema,
 	getAll,
 	getAllTasksSchema,
 	softDelete,
+	toggleTaskSchema,
+	uncomplete,
 } from "../services/taskService";
 import { protectedProcedure, router } from "../trpc";
 
@@ -20,4 +23,12 @@ export const taskRouter = router({
 	delete: protectedProcedure
 		.input(deleteTaskSchema)
 		.mutation(({ ctx, input }) => softDelete(ctx.session, input)),
+
+	complete: protectedProcedure
+		.input(toggleTaskSchema)
+		.mutation(({ ctx, input }) => complete(ctx.session, input)),
+
+	uncomplete: protectedProcedure
+		.input(toggleTaskSchema)
+		.mutation(({ ctx, input }) => uncomplete(ctx.session, input)),
 });

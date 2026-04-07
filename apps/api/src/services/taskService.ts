@@ -10,6 +10,12 @@ export const deleteTaskSchema = z.object({
 
 export type DeleteTaskInput = z.infer<typeof deleteTaskSchema>;
 
+export const toggleTaskSchema = z.object({
+	id: z.string().uuid(),
+});
+
+export type ToggleTaskInput = z.infer<typeof toggleTaskSchema>;
+
 export const createTaskSchema = z.object({
 	title: z.string().min(1).max(255),
 });
@@ -31,6 +37,38 @@ export async function softDelete(session: Session, input: DeleteTaskInput) {
 	const [task] = await db
 		.update(tasks)
 		.set({ deletedAt: new Date() })
+		.where(
+			and(
+				eq(tasks.id, input.id),
+				eq(tasks.householdId, session.householdId),
+				isNull(tasks.deletedAt),
+			),
+		)
+		.returning();
+
+	return task ?? null;
+}
+
+export async function complete(session: Session, input: ToggleTaskInput) {
+	const [task] = await db
+		.update(tasks)
+		.set({ completedAt: new Date() })
+		.where(
+			and(
+				eq(tasks.id, input.id),
+				eq(tasks.householdId, session.householdId),
+				isNull(tasks.deletedAt),
+			),
+		)
+		.returning();
+
+	return task ?? null;
+}
+
+export async function uncomplete(session: Session, input: ToggleTaskInput) {
+	const [task] = await db
+		.update(tasks)
+		.set({ completedAt: null })
 		.where(
 			and(
 				eq(tasks.id, input.id),

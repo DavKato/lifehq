@@ -1,6 +1,9 @@
-import { Trash2 } from "lucide-react";
+"use client";
+
+import { CheckSquare, Square, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { api } from "@/lib/api";
 
 type TaskRowProps = {
 	task: {
@@ -36,26 +39,69 @@ function getDueDateClass(
 
 export function TaskRow({ task, onDelete }: TaskRowProps) {
 	const dueDateClass = getDueDateClass(task.dueDate, task.completedAt);
+	const utils = api.useUtils();
+
+	const completeMutation = api.task.complete.useMutation({
+		onSuccess: () => utils.task.list.invalidate(),
+	});
+	const uncompleteMutation = api.task.uncomplete.useMutation({
+		onSuccess: () => utils.task.list.invalidate(),
+	});
+
+	const isCompleted = !!task.completedAt;
+	const isPending =
+		completeMutation.isPending || uncompleteMutation.isPending;
+
+	function handleToggle() {
+		if (isCompleted) {
+			uncompleteMutation.mutate({ id: task.id });
+		} else {
+			completeMutation.mutate({ id: task.id });
+		}
+	}
 
 	return (
 		<Card>
 			<CardContent className="flex items-center justify-between p-4">
-				<div className="space-y-0.5">
-					<p className="font-medium">{task.title}</p>
-					<div className="flex items-center gap-3 text-sm">
-						{task.assignee && (
-							<span className="text-muted-foreground">
-								{task.assignee.name}
-							</span>
+				<div className="flex items-center gap-3">
+					<Button
+						variant="ghost"
+						size="icon"
+						aria-pressed={isCompleted}
+						aria-label={
+							isCompleted ? "Mark incomplete" : "Mark complete"
+						}
+						disabled={isPending}
+						onClick={handleToggle}
+						className="shrink-0"
+					>
+						{isCompleted ? (
+							<CheckSquare className="h-5 w-5 text-primary" />
+						) : (
+							<Square className="h-5 w-5 text-muted-foreground" />
 						)}
-						{task.dueDate && (
-							<span className={dueDateClass}>
-								Due:{" "}
-								{new Date(
-									`${task.dueDate}T00:00:00`,
-								).toLocaleDateString()}
-							</span>
-						)}
+					</Button>
+					<div className="space-y-0.5">
+						<p
+							className={`font-medium ${isCompleted ? "line-through text-muted-foreground" : ""}`}
+						>
+							{task.title}
+						</p>
+						<div className="flex items-center gap-3 text-sm">
+							{task.assignee && (
+								<span className="text-muted-foreground">
+									{task.assignee.name}
+								</span>
+							)}
+							{task.dueDate && (
+								<span className={dueDateClass}>
+									Due:{" "}
+									{new Date(
+										`${task.dueDate}T00:00:00`,
+									).toLocaleDateString()}
+								</span>
+							)}
+						</div>
 					</div>
 				</div>
 				<Button

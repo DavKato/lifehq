@@ -1,7 +1,13 @@
 import { tasks } from "@lifehq/shared/db/schema";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
-import { create, getAll, softDelete } from "../services/taskService";
+import {
+	complete,
+	create,
+	getAll,
+	softDelete,
+	uncomplete,
+} from "../services/taskService";
 import {
 	closeTestDb,
 	createHousehold,
@@ -165,5 +171,161 @@ describe("taskService.getAll pagination", () => {
 
 		const page3 = await getAll(session, { page: 3, limit: 2 });
 		expect(page3.tasks).toHaveLength(1);
+	});
+});
+
+describe("taskService.complete / uncomplete", () => {
+	it("complete sets completedAt to a timestamp", async () => {
+		const user = await createUser();
+		const household = await createHousehold();
+		const session = await createMember(user.id, household.id);
+
+		const task = await create(session, { title: "Finish laundry" });
+		expect(task.completedAt).toBeNull();
+
+		const updated = await complete(session, { id: task.id });
+		expect(updated?.completedAt).not.toBeNull();
+	});
+
+	it("uncomplete clears completedAt to null", async () => {
+		const user = await createUser();
+		const household = await createHousehold();
+		const session = await createMember(user.id, household.id);
+
+		const task = await create(session, { title: "Mow lawn" });
+		await complete(session, { id: task.id });
+		const uncompleted = await uncomplete(session, { id: task.id });
+		expect(uncompleted?.completedAt).toBeNull();
+	});
+
+	it("cannot complete a task from another household", async () => {
+		const userA = await createUser({ email: "a@test.local" });
+		const userB = await createUser({ email: "b@test.local" });
+		const householdA = await createHousehold("A");
+		const householdB = await createHousehold("B");
+		const sessionA = await createMember(userA.id, householdA.id);
+		const sessionB = await createMember(userB.id, householdB.id);
+
+		const task = await create(sessionA, { title: "Household A task" });
+		const result = await complete(sessionB, { id: task.id });
+		expect(result).toBeNull();
+
+		const tasks = await getAll(sessionA);
+		expect(tasks.tasks[0].completedAt).toBeNull();
+	});
+});
+
+describe("taskService.getAll filtering", () => {
+	it("filters by status: incomplete excludes completed tasks", async () => {
+		const user = await createUser();
+		const household = await createHousehold();
+		const session = await createMember(user.id, household.id);
+
+		const t1 = await create(session, { title: "Incomplete" });
+		const t2 = await create(session, { title: "Completed" });
+		await complete(session, { id: t2.id });
+
+		const result = await getAll(session, { status: "incomplete" });
+		expect(result.tasks).toHaveLength(1);
+		expect(result.tasks[0].id).toBe(t1.id);
+	});
+
+	it("filters by status: completed returns only completed tasks", async () => {
+		const user = await createUser();
+		const household = await createHousehold();
+		const session = await createMember(user.id, household.id);
+
+		await create(session, { title: "Incomplete" });
+		const t2 = await create(session, { title: "Completed" });
+		await complete(session, { id: t2.id });
+
+		const result = await getAll(session, { status: "completed" });
+		expect(result.tasks).toHaveLength(1);
+		expect(result.tasks[0].id).toBe(t2.id);
+	});
+
+	it("filters by assigneeId: specific user", async () => {
+		const userA = await createUser({ email: "a@test.local" });
+		const userB = await createUser({ email: "b@test.local" });
+		const household = await createHousehold();
+		const sessionA = await createMember(userA.id, household.id);
+		await createMember(userB.id, household.id);
+
+		const db = getTestDb();
+		const t1 = await create(sessionA, { title: "Assigned to A" });
+		await db
+			.update(tasks)
+			.set({ assignedTo: userA.id })
+			.where(eq(tasks.id, t1.id));
+		await create(sessionA, { title: "Unassigned" });
+
+		const result = await getAll(sessionA, { assigneeId: userA.id });
+		expect(result.tasks).toHaveLength(1);
+		expect(result.tasks[0].id).toBe(t1.id);
+	});
+
+	it("filters by assigneeId: unassigned", async () => {
+		const userA = await createUser({ email: "a@test.local" });
+		const household = await createHousehold();
+		const sessionA = await createMember(userA.id, household.id);
+
+		const db = getTestDb();
+		const t1 = await create(sessionA, { title: "Assigned" });
+		await db
+			.update(tasks)
+			.set({ assignedTo: userA.id })
+			.where(eq(tasks.id, t1.id));
+		const t2 = await create(sessionA, { title: "Unassigned" });
+
+		const result = await getAll(sessionA, { assigneeId: "unassigned" });
+		expect(result.tasks).toHaveLength(1);
+		expect(result.tasks[0].id).toBe(t2.id);
+	});
+
+	it("combined filter: status + assigneeId", async () => {
+		const userA = await createUser({ email: "a@test.local" });
+		const household = await createHousehold();
+		const sessionA = await createMember(userA.id, household.id);
+
+		const db = getTestDb();
+		const t1 = await create(sessionA, { title: "A incomplete" });
+		await db
+			.update(tasks)
+			.set({ assignedTo: userA.id })
+			.where(eq(tasks.id, t1.id));
+		const t2 = await create(sessionA, { title: "A completed" });
+		await db
+			.update(tasks)
+			.set({ assignedTo: userA.id })
+			.where(eq(tasks.id, t2.id));
+		await complete(sessionA, { id: t2.id });
+		await create(sessionA, { title: "Unassigned incomplete" });
+
+		const result = await getAll(sessionA, {
+			assigneeId: userA.id,
+			status: "incomplete",
+		});
+		expect(result.tasks).toHaveLength(1);
+		expect(result.tasks[0].id).toBe(t1.id);
+	});
+});
+
+describe("taskService.getAll sort order", () => {
+	it("sorts by completedAt descending when status=completed", async () => {
+		const user = await createUser();
+		const household = await createHousehold();
+		const session = await createMember(user.id, household.id);
+
+		const t1 = await create(session, { title: "First completed" });
+		const t2 = await create(session, { title: "Second completed" });
+
+		await complete(session, { id: t1.id });
+		// Small delay to ensure different timestamps
+		await new Promise((r) => setTimeout(r, 10));
+		await complete(session, { id: t2.id });
+
+		const result = await getAll(session, { status: "completed" });
+		expect(result.tasks[0].id).toBe(t2.id); // most recent first
+		expect(result.tasks[1].id).toBe(t1.id);
 	});
 });
