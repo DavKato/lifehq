@@ -16,12 +16,14 @@ type DatePickerProps = {
 	name: string;
 	defaultValue?: string;
 	placeholder?: string;
+	onSelect?: (value: string) => void;
 };
 
 export function DatePicker({
 	name,
 	defaultValue,
 	placeholder = "Pick a date",
+	onSelect,
 }: DatePickerProps) {
 	const [selected, setSelected] = React.useState<Date | undefined>(
 		defaultValue ? parseISO(defaultValue) : undefined,
@@ -56,6 +58,7 @@ export function DatePicker({
 						onSelect={(day) => {
 							setSelected(day);
 							setOpen(false);
+							onSelect?.(day ? format(day, "yyyy-MM-dd") : "");
 						}}
 						className="[--cell-size:2.5rem]"
 						initialFocus

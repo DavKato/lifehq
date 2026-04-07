@@ -170,7 +170,12 @@ export function TaskList() {
 				)}
 
 				{taskList.map((task) => (
-					<TaskRow key={task.id} task={task} onDelete={setDeleteId} />
+					<TaskRow
+						key={task.id}
+						task={task}
+						members={members}
+						onDelete={setDeleteId}
+					/>
 				))}
 			</div>
 

@@ -4,6 +4,16 @@ import { and, asc, desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../db/client";
 
+export const updateTaskSchema = z.object({
+	id: z.string().uuid(),
+	title: z.string().min(1).max(255).optional(),
+	description: z.string().nullable().optional(),
+	assignedTo: z.string().uuid().nullable().optional(),
+	dueDate: z.string().nullable().optional(),
+});
+
+export type UpdateTaskInput = z.infer<typeof updateTaskSchema>;
+
 export const deleteTaskSchema = z.object({
 	id: z.string().uuid(),
 });
@@ -32,6 +42,34 @@ export const getAllTasksSchema = z.object({
 
 export type CreateTaskInput = z.infer<typeof createTaskSchema>;
 export type GetAllTasksInput = z.infer<typeof getAllTasksSchema>;
+
+export async function update(session: Session, input: UpdateTaskInput) {
+	const { id, ...fields } = input;
+
+	const setValues: Partial<typeof tasks.$inferInsert> = {};
+	if (fields.title !== undefined) setValues.title = fields.title;
+	if ("description" in fields)
+		setValues.description = fields.description ?? null;
+	if ("assignedTo" in fields)
+		setValues.assignedTo = fields.assignedTo ?? null;
+	if ("dueDate" in fields) setValues.dueDate = fields.dueDate ?? null;
+
+	if (Object.keys(setValues).length === 0) return null;
+
+	const [task] = await db
+		.update(tasks)
+		.set(setValues)
+		.where(
+			and(
+				eq(tasks.id, id),
+				eq(tasks.householdId, session.householdId),
+				isNull(tasks.deletedAt),
+			),
+		)
+		.returning();
+
+	return task ?? null;
+}
 
 export async function softDelete(session: Session, input: DeleteTaskInput) {
 	const [task] = await db

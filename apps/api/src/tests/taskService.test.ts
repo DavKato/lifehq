@@ -7,6 +7,7 @@ import {
 	getAll,
 	softDelete,
 	uncomplete,
+	update,
 } from "../services/taskService";
 import {
 	closeTestDb,
@@ -307,6 +308,94 @@ describe("taskService.getAll filtering", () => {
 		});
 		expect(result.tasks).toHaveLength(1);
 		expect(result.tasks[0].id).toBe(t1.id);
+	});
+});
+
+describe("taskService.update", () => {
+	it("updates title, description, dueDate, and assignedTo", async () => {
+		const userA = await createUser({ email: "a@test.local" });
+		const userB = await createUser({ email: "b@test.local" });
+		const household = await createHousehold();
+		const session = await createMember(userA.id, household.id);
+		await createMember(userB.id, household.id);
+
+		const task = await create(session, { title: "Original" });
+
+		const updated = await update(session, {
+			id: task.id,
+			title: "Updated",
+			description: "Some details",
+			dueDate: "2026-12-01",
+			assignedTo: userB.id,
+		});
+
+		expect(updated?.title).toBe("Updated");
+		expect(updated?.description).toBe("Some details");
+		expect(updated?.dueDate).toBe("2026-12-01");
+		expect(updated?.assignedTo).toBe(userB.id);
+	});
+
+	it("supports partial updates — unspecified fields are unchanged", async () => {
+		const user = await createUser();
+		const household = await createHousehold();
+		const session = await createMember(user.id, household.id);
+
+		const db = getTestDb();
+		const task = await create(session, { title: "Buy milk" });
+		await db
+			.update(tasks)
+			.set({ description: "Whole milk", dueDate: "2026-10-01" })
+			.where(eq(tasks.id, task.id));
+
+		const updated = await update(session, {
+			id: task.id,
+			title: "Buy oat milk",
+		});
+
+		expect(updated?.title).toBe("Buy oat milk");
+		expect(updated?.description).toBe("Whole milk");
+		expect(updated?.dueDate).toBe("2026-10-01");
+	});
+
+	it("can clear nullable fields by setting them to null", async () => {
+		const user = await createUser();
+		const household = await createHousehold();
+		const session = await createMember(user.id, household.id);
+
+		const db = getTestDb();
+		const task = await create(session, { title: "Task" });
+		await db
+			.update(tasks)
+			.set({ assignedTo: user.id, dueDate: "2026-10-01" })
+			.where(eq(tasks.id, task.id));
+
+		const updated = await update(session, {
+			id: task.id,
+			assignedTo: null,
+			dueDate: null,
+		});
+
+		expect(updated?.assignedTo).toBeNull();
+		expect(updated?.dueDate).toBeNull();
+	});
+
+	it("cannot update a task from another household", async () => {
+		const userA = await createUser({ email: "a@test.local" });
+		const userB = await createUser({ email: "b@test.local" });
+		const householdA = await createHousehold("A");
+		const householdB = await createHousehold("B");
+		const sessionA = await createMember(userA.id, householdA.id);
+		const sessionB = await createMember(userB.id, householdB.id);
+
+		const task = await create(sessionA, { title: "Household A task" });
+		const result = await update(sessionB, {
+			id: task.id,
+			title: "Hijacked",
+		});
+
+		expect(result).toBeNull();
+		const tasks = await getAll(sessionA);
+		expect(tasks.tasks[0].title).toBe("Household A task");
 	});
 });
 
