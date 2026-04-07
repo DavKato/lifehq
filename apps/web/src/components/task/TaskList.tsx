@@ -1,17 +1,21 @@
 "use client";
 
-import { CheckSquare } from "lucide-react";
+import { CheckSquare, ChevronLeft, ChevronRight } from "lucide-react";
 import { useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
+import { DeleteTaskDialog } from "./DeleteTaskDialog";
 import { TaskRow } from "./TaskRow";
 
 export function TaskList() {
 	const [title, setTitle] = useState("");
+	const [page, setPage] = useState(1);
+	const [deleteId, setDeleteId] = useState<string | null>(null);
 	const inputRef = useRef<HTMLInputElement>(null);
 
-	const tasksQuery = api.task.list.useQuery({});
+	const tasksQuery = api.task.list.useQuery({ page });
 	const utils = api.useUtils();
 
 	const createMutation = api.task.create.useMutation({
@@ -29,6 +33,7 @@ export function TaskList() {
 	}
 
 	const taskList = tasksQuery.data?.tasks ?? [];
+	const totalPages = tasksQuery.data?.totalPages ?? 1;
 
 	return (
 		<div className="space-y-6">
@@ -69,9 +74,37 @@ export function TaskList() {
 				)}
 
 				{taskList.map((task) => (
-					<TaskRow key={task.id} task={task} />
+					<TaskRow key={task.id} task={task} onDelete={setDeleteId} />
 				))}
 			</div>
+
+			{totalPages > 1 && (
+				<div className="flex items-center justify-center gap-4">
+					<Button
+						variant="outline"
+						size="icon"
+						disabled={page <= 1}
+						onClick={() => setPage((p) => p - 1)}
+						aria-label="Previous page"
+					>
+						<ChevronLeft className="h-4 w-4" />
+					</Button>
+					<span className="text-sm text-muted-foreground">
+						Page {page} of {totalPages}
+					</span>
+					<Button
+						variant="outline"
+						size="icon"
+						disabled={page >= totalPages}
+						onClick={() => setPage((p) => p + 1)}
+						aria-label="Next page"
+					>
+						<ChevronRight className="h-4 w-4" />
+					</Button>
+				</div>
+			)}
+
+			<DeleteTaskDialog id={deleteId} onClose={() => setDeleteId(null)} />
 		</div>
 	);
 }

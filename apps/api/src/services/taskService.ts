@@ -4,6 +4,12 @@ import { and, asc, desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../db/client";
 
+export const deleteTaskSchema = z.object({
+	id: z.string().uuid(),
+});
+
+export type DeleteTaskInput = z.infer<typeof deleteTaskSchema>;
+
 export const createTaskSchema = z.object({
 	title: z.string().min(1).max(255),
 });
@@ -20,6 +26,22 @@ export const getAllTasksSchema = z.object({
 
 export type CreateTaskInput = z.infer<typeof createTaskSchema>;
 export type GetAllTasksInput = z.infer<typeof getAllTasksSchema>;
+
+export async function softDelete(session: Session, input: DeleteTaskInput) {
+	const [task] = await db
+		.update(tasks)
+		.set({ deletedAt: new Date() })
+		.where(
+			and(
+				eq(tasks.id, input.id),
+				eq(tasks.householdId, session.householdId),
+				isNull(tasks.deletedAt),
+			),
+		)
+		.returning();
+
+	return task ?? null;
+}
 
 export async function create(session: Session, input: CreateTaskInput) {
 	const [task] = await db
