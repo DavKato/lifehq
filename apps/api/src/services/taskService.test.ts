@@ -8,7 +8,7 @@ import {
 	softDelete,
 	uncomplete,
 	update,
-} from "../services/taskService";
+} from "./taskService";
 import {
 	closeTestDb,
 	createHousehold,
@@ -16,7 +16,7 @@ import {
 	createUser,
 	getTestDb,
 	resetDb,
-} from "./fixtures";
+} from "../tests/fixtures";
 
 beforeEach(async () => {
 	await resetDb();
