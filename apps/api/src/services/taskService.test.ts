@@ -1,12 +1,9 @@
-import { tasks } from "@lifehq/shared/db/schema";
-import { eq } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import {
 	closeTestDb,
 	createHousehold,
 	createMember,
 	createUser,
-	getTestDb,
 	resetDb,
 } from "../tests/fixtures";
 import {
@@ -79,11 +76,7 @@ describe("taskService.getAll", () => {
 		const task = await create(session, { title: "To be deleted" });
 		await create(session, { title: "Active task" });
 
-		const db = getTestDb();
-		await db
-			.update(tasks)
-			.set({ deletedAt: new Date() })
-			.where(eq(tasks.id, task.id));
+		await softDelete(session, { id: task.id });
 
 		const result = await getAll(session);
 		expect(result.tasks).toHaveLength(1);
@@ -147,12 +140,8 @@ describe("taskService.getAll", () => {
 			const sessionA = await createMember(userA.id, household.id);
 			await createMember(userB.id, household.id);
 
-			const db = getTestDb();
 			const t1 = await create(sessionA, { title: "Assigned to A" });
-			await db
-				.update(tasks)
-				.set({ assignedTo: userA.id })
-				.where(eq(tasks.id, t1.id));
+			await update(sessionA, { id: t1.id, assignedTo: userA.id });
 			await create(sessionA, { title: "Unassigned" });
 
 			const result = await getAll(sessionA, { assigneeId: userA.id });
@@ -165,12 +154,8 @@ describe("taskService.getAll", () => {
 			const household = await createHousehold();
 			const sessionA = await createMember(userA.id, household.id);
 
-			const db = getTestDb();
 			const t1 = await create(sessionA, { title: "Assigned" });
-			await db
-				.update(tasks)
-				.set({ assignedTo: userA.id })
-				.where(eq(tasks.id, t1.id));
+			await update(sessionA, { id: t1.id, assignedTo: userA.id });
 			const t2 = await create(sessionA, { title: "Unassigned" });
 
 			const result = await getAll(sessionA, { assigneeId: "unassigned" });
@@ -183,17 +168,10 @@ describe("taskService.getAll", () => {
 			const household = await createHousehold();
 			const sessionA = await createMember(userA.id, household.id);
 
-			const db = getTestDb();
 			const t1 = await create(sessionA, { title: "A incomplete" });
-			await db
-				.update(tasks)
-				.set({ assignedTo: userA.id })
-				.where(eq(tasks.id, t1.id));
+			await update(sessionA, { id: t1.id, assignedTo: userA.id });
 			const t2 = await create(sessionA, { title: "A completed" });
-			await db
-				.update(tasks)
-				.set({ assignedTo: userA.id })
-				.where(eq(tasks.id, t2.id));
+			await update(sessionA, { id: t2.id, assignedTo: userA.id });
 			await complete(sessionA, { id: t2.id });
 			await create(sessionA, { title: "Unassigned incomplete" });
 
@@ -212,25 +190,11 @@ describe("taskService.getAll", () => {
 			const household = await createHousehold();
 			const session = await createMember(user.id, household.id);
 
-			const db = getTestDb();
-			await db.insert(tasks).values({
-				title: "Due later",
-				dueDate: "2026-06-01",
-				householdId: household.id,
-				createdBy: user.id,
-			});
-			await db.insert(tasks).values({
-				title: "Due sooner",
-				dueDate: "2026-04-10",
-				householdId: household.id,
-				createdBy: user.id,
-			});
-			await db.insert(tasks).values({
-				title: "No due date",
-				dueDate: null,
-				householdId: household.id,
-				createdBy: user.id,
-			});
+			const t1 = await create(session, { title: "Due later" });
+			await update(session, { id: t1.id, dueDate: "2026-06-01" });
+			const t2 = await create(session, { title: "Due sooner" });
+			await update(session, { id: t2.id, dueDate: "2026-04-10" });
+			await create(session, { title: "No due date" });
 
 			const result = await getAll(session);
 			expect(result.tasks.map((t) => t.title)).toEqual([
@@ -267,12 +231,8 @@ describe("taskService.getAll", () => {
 			const session = await createMember(user.id, household.id);
 			await createMember(assignee.id, household.id);
 
-			const db = getTestDb();
 			const task = await create(session, { title: "With relations" });
-			await db
-				.update(tasks)
-				.set({ assignedTo: assignee.id })
-				.where(eq(tasks.id, task.id));
+			await update(session, { id: task.id, assignedTo: assignee.id });
 
 			const result = await getAll(session);
 			const row = result.tasks[0];
@@ -424,12 +384,12 @@ describe("taskService.update", () => {
 		const household = await createHousehold();
 		const session = await createMember(user.id, household.id);
 
-		const db = getTestDb();
 		const task = await create(session, { title: "Buy milk" });
-		await db
-			.update(tasks)
-			.set({ description: "Whole milk", dueDate: "2026-10-01" })
-			.where(eq(tasks.id, task.id));
+		await update(session, {
+			id: task.id,
+			description: "Whole milk",
+			dueDate: "2026-10-01",
+		});
 
 		const updated = await update(session, {
 			id: task.id,
@@ -446,12 +406,12 @@ describe("taskService.update", () => {
 		const household = await createHousehold();
 		const session = await createMember(user.id, household.id);
 
-		const db = getTestDb();
 		const task = await create(session, { title: "Task" });
-		await db
-			.update(tasks)
-			.set({ assignedTo: user.id, dueDate: "2026-10-01" })
-			.where(eq(tasks.id, task.id));
+		await update(session, {
+			id: task.id,
+			assignedTo: user.id,
+			dueDate: "2026-10-01",
+		});
 
 		const updated = await update(session, {
 			id: task.id,

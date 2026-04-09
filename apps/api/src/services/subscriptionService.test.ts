@@ -1,5 +1,3 @@
-import { subscriptions } from "@lifehq/shared/db/schema";
-import { eq } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import {
 	closeTestDb,
@@ -7,7 +5,6 @@ import {
 	createHousehold,
 	createMember,
 	createUser,
-	getTestDb,
 	resetDb,
 } from "../tests/fixtures";
 import {
@@ -46,7 +43,7 @@ describe("subscriptionService.create", () => {
 		expect(sub.householdId).toBe(household.id);
 	});
 
-	it("stores price as a numeric-compatible string", async () => {
+	it("price is preserved with correct decimal precision", async () => {
 		const user = await createUser();
 		const household = await createHousehold();
 		const session = await createMember(user.id, household.id);
@@ -106,11 +103,7 @@ describe("subscriptionService.getAll", () => {
 		const sub = await create(session, { ...BASE_INPUT, name: "To delete" });
 		await create(session, { ...BASE_INPUT, name: "Active" });
 
-		const db = getTestDb();
-		await db
-			.update(subscriptions)
-			.set({ deletedAt: new Date() })
-			.where(eq(subscriptions.id, sub.id));
+		await remove(session, sub.id);
 
 		const result = await getAll(session);
 		expect(result).toHaveLength(1);

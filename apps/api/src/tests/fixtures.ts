@@ -11,7 +11,7 @@ const connectionString =
 let client: ReturnType<typeof postgres> | null = null;
 let testDb: ReturnType<typeof drizzle> | null = null;
 
-export function getTestDb() {
+function getTestDb() {
 	if (!testDb) {
 		client = postgres(connectionString, { max: 5 });
 		testDb = drizzle(client, { schema });
