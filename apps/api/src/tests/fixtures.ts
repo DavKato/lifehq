@@ -30,7 +30,7 @@ export async function closeTestDb() {
 export async function resetDb() {
 	const db = getTestDb();
 	await db.execute(
-		`TRUNCATE TABLE tasks, subscriptions, household_members, household_invites, households, "user" CASCADE`,
+		`TRUNCATE TABLE tasks, subscriptions, categories, household_members, household_invites, households, "user" CASCADE`,
 	);
 }
 
@@ -58,6 +58,12 @@ export async function createHousehold(name = "Test Household") {
 	const db = getTestDb();
 	const [h] = await db.insert(schema.households).values({ name }).returning();
 	return h;
+}
+
+export async function createCategory(name = "Test Category") {
+	const db = getTestDb();
+	const [c] = await db.insert(schema.categories).values({ name }).returning();
+	return c;
 }
 
 export async function createMember(
