@@ -68,7 +68,7 @@ aws ssm put-parameter \
   --type SecureString
 ```
 
-### 5. Configure GitHub Environments
+### 4. Configure GitHub Environments
 
 In the GitHub repository, go to **Settings → Environments** and create two environments: `dev` and `prod`.
 

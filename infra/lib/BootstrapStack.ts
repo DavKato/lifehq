@@ -1,13 +1,13 @@
-import { CfnOutput, Stack, type StackProps } from "aws-cdk-lib";
+import { Annotations, CfnOutput, Stack, type StackProps } from "aws-cdk-lib";
 import {
-	ManagedPolicy,
 	OpenIdConnectProvider,
+	PolicyStatement,
 	Role,
 	WebIdentityPrincipal,
 } from "aws-cdk-lib/aws-iam";
 import { StringParameter } from "aws-cdk-lib/aws-ssm";
 import type { Construct } from "constructs";
-import type { Stage } from "./LifehqStack";
+import type { Stage } from "./types";
 
 interface BootstrapStackProps extends StackProps {
 	stage: Stage;
@@ -19,12 +19,16 @@ export class LifehqBootstrapStack extends Stack {
 
 		const { stage } = props;
 
-		const betterAuthUrl = this.node.tryGetContext(
-			"betterAuthUrl",
-		) as string;
+		const betterAuthUrl = this.node.tryGetContext("betterAuthUrl");
 		const betterAuthTrustedHosts = this.node.tryGetContext(
 			"betterAuthTrustedHosts",
-		) as string;
+		);
+
+		if (!betterAuthTrustedHosts) {
+			Annotations.of(this).addError(
+				"betterAuthTrustedHosts context value is required. Pass it with: -c betterAuthTrustedHosts=<url>",
+			);
+		}
 
 		// GitHub Actions OIDC identity provider
 		const oidcProvider = new OpenIdConnectProvider(
@@ -38,7 +42,7 @@ export class LifehqBootstrapStack extends Stack {
 
 		// Deploy role — assumed by GitHub Actions via OIDC
 		const deployRole = new Role(this, "DeployRole", {
-			roleName: "lifehq-deploy-role",
+			roleName: `lifehq-deploy-role-${stage}`,
 			assumedBy: new WebIdentityPrincipal(
 				oidcProvider.openIdConnectProviderArn,
 				{
@@ -53,8 +57,13 @@ export class LifehqBootstrapStack extends Stack {
 			),
 		});
 
-		deployRole.addManagedPolicy(
-			ManagedPolicy.fromAwsManagedPolicyName("AdministratorAccess"),
+		deployRole.addToPolicy(
+			new PolicyStatement({
+				actions: ["sts:AssumeRole"],
+				resources: [
+					`arn:aws:iam::${this.account}:role/cdk-hnb659fds-*`,
+				],
+			}),
 		);
 
 		new CfnOutput(this, "DeployRoleArn", {

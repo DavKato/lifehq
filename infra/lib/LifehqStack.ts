@@ -14,7 +14,7 @@ import { StringParameter } from "aws-cdk-lib/aws-ssm";
 import type { Construct } from "constructs";
 import { SSM_SECRET_KEYS } from "../../apps/api/src/config/ssm";
 
-export type Stage = "dev" | "prod";
+import type { Stage } from "./types";
 
 interface LifehqStackProps extends StackProps {
 	stage: Stage;
