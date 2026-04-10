@@ -2,10 +2,17 @@ import * as path from "node:path";
 import { CfnOutput, Duration, Stack, type StackProps } from "aws-cdk-lib";
 import { HttpApi, HttpMethod } from "aws-cdk-lib/aws-apigatewayv2";
 import { HttpLambdaIntegration } from "aws-cdk-lib/aws-apigatewayv2-integrations";
-import { Architecture, Runtime } from "aws-cdk-lib/aws-lambda";
-import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
+import { PolicyStatement } from "aws-cdk-lib/aws-iam";
+import {
+	Architecture,
+	ParamsAndSecretsLayerVersion,
+	ParamsAndSecretsVersions,
+	Runtime,
+} from "aws-cdk-lib/aws-lambda";
+import { NodejsFunction, OutputFormat } from "aws-cdk-lib/aws-lambda-nodejs";
 import { StringParameter } from "aws-cdk-lib/aws-ssm";
 import type { Construct } from "constructs";
+import { SSM_SECRET_KEYS } from "../../apps/api/src/config/ssm";
 
 export type Stage = "dev" | "prod";
 
@@ -18,27 +25,6 @@ export class LifehqStack extends Stack {
 		super(scope, id, props);
 
 		const { stage } = props;
-
-		// SSM Parameter Store — sensitive config (SecureString)
-		const databaseUrlParam = StringParameter.valueForSecureStringParameter(
-			this,
-			`/lifehq/${stage}/DATABASE_URL`,
-		);
-		const googleClientIdParam =
-			StringParameter.valueForSecureStringParameter(
-				this,
-				`/lifehq/${stage}/GOOGLE_CLIENT_ID`,
-			);
-		const googleClientSecretParam =
-			StringParameter.valueForSecureStringParameter(
-				this,
-				`/lifehq/${stage}/GOOGLE_CLIENT_SECRET`,
-			);
-		const betterAuthSecretParam =
-			StringParameter.valueForSecureStringParameter(
-				this,
-				`/lifehq/${stage}/BETTER_AUTH_SECRET`,
-			);
 
 		// SSM Parameter Store — non-sensitive config (String)
 		const stageParam = StringParameter.valueForStringParameter(
@@ -56,6 +42,10 @@ export class LifehqStack extends Stack {
 			);
 
 		// Lambda — Fastify app via aws-lambda-fastify adapter
+		const paramsAndSecrets = ParamsAndSecretsLayerVersion.fromVersion(
+			ParamsAndSecretsVersions.V1_0_103,
+		);
+
 		const lambdaFn = new NodejsFunction(this, "ApiLambda", {
 			runtime: Runtime.NODEJS_22_X,
 			architecture: Architecture.ARM_64,
@@ -63,8 +53,9 @@ export class LifehqStack extends Stack {
 			timeout: Duration.seconds(30),
 			entry: path.join(__dirname, "../../apps/api/src/lambda.ts"),
 			handler: "handler",
+			paramsAndSecrets,
 			bundling: {
-				format: "esm" as const,
+				format: OutputFormat.ESM,
 				target: "node22",
 				// Suppress tsx/esbuild warnings about optional native deps
 				externalModules: [],
@@ -76,12 +67,22 @@ export class LifehqStack extends Stack {
 				// Fastify @fastify/cors reads CORS_ORIGINS; same value as
 				// BETTER_AUTH_TRUSTED_HOSTS (the frontend URL).
 				CORS_ORIGINS: betterAuthTrustedHostsParam,
-				DATABASE_URL: databaseUrlParam,
-				GOOGLE_CLIENT_ID: googleClientIdParam,
-				GOOGLE_CLIENT_SECRET: googleClientSecretParam,
-				BETTER_AUTH_SECRET: betterAuthSecretParam,
+				// DATABASE_URL, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, BETTER_AUTH_SECRET
+				// are fetched at cold-start via the Parameters & Secrets Lambda Extension
+				// (SSM SecureString refs are not supported in Lambda env vars).
 			},
 		});
+
+		// Grant the Lambda permission to read the 4 SecureString parameters.
+		lambdaFn.addToRolePolicy(
+			new PolicyStatement({
+				actions: ["ssm:GetParameter"],
+				resources: SSM_SECRET_KEYS.map(
+					(key) =>
+						`arn:aws:ssm:${this.region}:${this.account}:parameter/lifehq/${stage}/${key}`,
+				),
+			}),
+		);
 
 		// HTTP API Gateway — CORS is handled by @fastify/cors in the Lambda,
 		// not here, because API Gateway CORS does not resolve SSM dynamic refs.
