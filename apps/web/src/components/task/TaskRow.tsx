@@ -2,6 +2,7 @@
 
 import { CheckSquare, Square, Trash2 } from "lucide-react";
 import { useRef, useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -67,6 +68,15 @@ export function TaskRow({ task, members, onDelete }: TaskRowProps) {
 	});
 	const updateMutation = api.task.update.useMutation({
 		onSuccess: () => utils.task.list.invalidate(),
+	});
+	const deleteMutation = api.task.delete.useMutation({
+		onSuccess: () => {
+			utils.task.list.invalidate();
+			toast.success("Task deleted");
+		},
+		onError: (err) => {
+			toast.error(`Failed to delete task: ${err.message}`);
+		},
 	});
 
 	const isCompleted = !!task.completedAt;
@@ -170,7 +180,18 @@ export function TaskRow({ task, members, onDelete }: TaskRowProps) {
 						variant="ghost"
 						size="icon"
 						aria-label="Delete task"
-						onClick={() => onDelete(task.id)}
+						disabled={deleteMutation.isPending}
+						onClick={() => {
+							const isSimple =
+								!task.description &&
+								!task.assignee &&
+								!task.dueDate;
+							if (isSimple) {
+								deleteMutation.mutate({ id: task.id });
+							} else {
+								onDelete(task.id);
+							}
+						}}
 					>
 						<Trash2 className="h-4 w-4 text-muted-foreground" />
 					</Button>
