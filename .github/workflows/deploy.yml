@@ -1,0 +1,68 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        type: choice
+        options:
+          - dev
+          - prod
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.29.3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: eu-west-1
+
+      - name: Run DB migrations
+        run: pnpm --filter api db:migrate
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      - name: Set CDK account environment variable
+        run: |
+          if [ "${{ inputs.environment }}" = "dev" ]; then
+            echo "CDK_DEV_ACCOUNT=${{ secrets.AWS_ACCOUNT_ID }}" >> "$GITHUB_ENV"
+          else
+            echo "CDK_PROD_ACCOUNT=${{ secrets.AWS_ACCOUNT_ID }}" >> "$GITHUB_ENV"
+          fi
+
+      - name: Deploy CDK stack
+        run: pnpm --filter infra cdk deploy LifehqStack-${{ inputs.environment }} --require-approval never --outputs-file cdk-outputs.json
+        env:
+          CDK_REGION: eu-west-1
+
+      - name: Print API Gateway URL
+        run: |
+          API_URL=$(jq -r '.["LifehqStack-${{ inputs.environment }}"].ApiUrl' cdk-outputs.json)
+          echo "API Gateway URL: $API_URL"
+        working-directory: infra
