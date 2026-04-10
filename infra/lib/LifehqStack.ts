@@ -8,7 +8,6 @@ import {
 import { HttpLambdaIntegration } from "aws-cdk-lib/aws-apigatewayv2-integrations";
 import { Architecture, Runtime } from "aws-cdk-lib/aws-lambda";
 import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
-import { Secret } from "aws-cdk-lib/aws-secretsmanager";
 import { StringParameter } from "aws-cdk-lib/aws-ssm";
 import type { Construct } from "constructs";
 
@@ -24,14 +23,28 @@ export class LifehqStack extends Stack {
 
 		const { stage } = props;
 
-		// Secrets Manager — sensitive config (one JSON secret per environment)
-		const appSecret = Secret.fromSecretNameV2(
+		// SSM Parameter Store — sensitive config (SecureString)
+		const databaseUrlParam = StringParameter.valueForSecureStringParameter(
 			this,
-			"AppSecret",
-			`lifehq/${stage}/app`,
+			`/lifehq/${stage}/DATABASE_URL`,
 		);
+		const googleClientIdParam =
+			StringParameter.valueForSecureStringParameter(
+				this,
+				`/lifehq/${stage}/GOOGLE_CLIENT_ID`,
+			);
+		const googleClientSecretParam =
+			StringParameter.valueForSecureStringParameter(
+				this,
+				`/lifehq/${stage}/GOOGLE_CLIENT_SECRET`,
+			);
+		const betterAuthSecretParam =
+			StringParameter.valueForSecureStringParameter(
+				this,
+				`/lifehq/${stage}/BETTER_AUTH_SECRET`,
+			);
 
-		// SSM Parameter Store — non-sensitive config
+		// SSM Parameter Store — non-sensitive config (String)
 		const stageParam = StringParameter.valueForStringParameter(
 			this,
 			`/lifehq/${stage}/STAGE`,
@@ -65,24 +78,12 @@ export class LifehqStack extends Stack {
 				STAGE: stageParam,
 				BETTER_AUTH_URL: betterAuthUrlParam,
 				BETTER_AUTH_TRUSTED_HOSTS: betterAuthTrustedHostsParam,
-				// Secrets resolved at deploy time via dynamic references
-				DATABASE_URL: appSecret
-					.secretValueFromJson("DATABASE_URL")
-					.unsafeUnwrap(),
-				GOOGLE_CLIENT_ID: appSecret
-					.secretValueFromJson("GOOGLE_CLIENT_ID")
-					.unsafeUnwrap(),
-				GOOGLE_CLIENT_SECRET: appSecret
-					.secretValueFromJson("GOOGLE_CLIENT_SECRET")
-					.unsafeUnwrap(),
-				BETTER_AUTH_SECRET: appSecret
-					.secretValueFromJson("BETTER_AUTH_SECRET")
-					.unsafeUnwrap(),
+				DATABASE_URL: databaseUrlParam,
+				GOOGLE_CLIENT_ID: googleClientIdParam,
+				GOOGLE_CLIENT_SECRET: googleClientSecretParam,
+				BETTER_AUTH_SECRET: betterAuthSecretParam,
 			},
 		});
-
-		// Grant Lambda permission to read the secret
-		appSecret.grantRead(lambdaFn);
 
 		// HTTP API Gateway
 		const httpApi = new HttpApi(this, "HttpApi", {

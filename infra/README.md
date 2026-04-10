@@ -1,15 +1,15 @@
 # LifeHQ Infrastructure
 
-AWS CDK infrastructure for the LifeHQ API. Provisions a Lambda (Fastify via `aws-lambda-fastify`) behind an HTTP API Gateway, with secrets from Secrets Manager and config from SSM Parameter Store.
+AWS CDK infrastructure for the LifeHQ API. Provisions a Lambda (Fastify via `aws-lambda-fastify`) behind an HTTP API Gateway, with all config and secrets stored in SSM Parameter Store.
 
 ## Architecture
 
 ```
 HTTP API Gateway (HttpApi)
   └── ANY /{proxy+} → Lambda (NodejsFunction, Node 22, arm64, 256 MB, 30 s)
-                         ├── Secrets Manager: DATABASE_URL, GOOGLE_CLIENT_ID,
-                         │                   GOOGLE_CLIENT_SECRET, BETTER_AUTH_SECRET
-                         └── SSM: STAGE, BETTER_AUTH_URL, BETTER_AUTH_TRUSTED_HOSTS
+                         ├── SSM SecureString: DATABASE_URL, GOOGLE_CLIENT_ID,
+                         │                    GOOGLE_CLIENT_SECRET, BETTER_AUTH_SECRET
+                         └── SSM String: STAGE, BETTER_AUTH_URL, BETTER_AUTH_TRUSTED_HOSTS
 ```
 
 Two stacks share the same definition, parameterised by `stage`:
@@ -66,39 +66,39 @@ Then create an IAM role (`lifehq-deploy-role` or similar) with:
 }
 ```
 
-- **Permissions policy**: attach `AdministratorAccess` (or a scoped policy covering CDK bootstrap role pass, Lambda, API Gateway, Secrets Manager read, SSM read, CloudFormation, S3, IAM).
+- **Permissions policy**: attach `AdministratorAccess` (or a scoped policy covering CDK bootstrap role pass, Lambda, API Gateway, SSM read, CloudFormation, S3, IAM).
 
 Record the role ARN — you'll need it for GitHub Environments.
 
-### 3. Create Secrets Manager secret
+### 3. Create SSM parameters
 
-In each account, create a secret named `lifehq/<stage>/app` (e.g. `lifehq/dev/app`) as a JSON blob:
+In each account, create the following SSM parameters (standard tier, free). Sensitive values use `SecureString` (KMS-encrypted); non-sensitive values use `String`.
 
-```json
-{
-  "DATABASE_URL": "postgresql://...",
-  "GOOGLE_CLIENT_ID": "...",
-  "GOOGLE_CLIENT_SECRET": "...",
-  "BETTER_AUTH_SECRET": "..."
-}
-```
-
-Using the AWS CLI:
+**Sensitive config (SecureString):**
 
 ```bash
-aws secretsmanager create-secret \
-  --name lifehq/dev/app \
-  --secret-string '{
-    "DATABASE_URL": "postgresql://...",
-    "GOOGLE_CLIENT_ID": "...",
-    "GOOGLE_CLIENT_SECRET": "...",
-    "BETTER_AUTH_SECRET": "..."
-  }'
+aws ssm put-parameter \
+  --name /lifehq/dev/DATABASE_URL \
+  --value "postgresql://..." \
+  --type SecureString
+
+aws ssm put-parameter \
+  --name /lifehq/dev/GOOGLE_CLIENT_ID \
+  --value "..." \
+  --type SecureString
+
+aws ssm put-parameter \
+  --name /lifehq/dev/GOOGLE_CLIENT_SECRET \
+  --value "..." \
+  --type SecureString
+
+aws ssm put-parameter \
+  --name /lifehq/dev/BETTER_AUTH_SECRET \
+  --value "..." \
+  --type SecureString
 ```
 
-### 4. Create SSM parameters
-
-In each account, create the following SSM parameters (standard tier, free):
+**Non-sensitive config (String):**
 
 ```bash
 # Stage identifier
@@ -193,17 +193,16 @@ Environment variables required for `deploy` and `diff`:
 pnpm --filter infra cdk destroy LifehqStack-dev
 ```
 
-CDK retains Secrets Manager secrets by default. After destroying the stack, delete the secret manually:
-
-```bash
-aws secretsmanager delete-secret \
-  --secret-id lifehq/dev/app \
-  --force-delete-without-recovery
-```
-
-Also delete the SSM parameters if no longer needed:
+Delete the SSM parameters if no longer needed:
 
 ```bash
 aws ssm delete-parameters \
-  --names /lifehq/dev/STAGE /lifehq/dev/BETTER_AUTH_URL /lifehq/dev/BETTER_AUTH_TRUSTED_HOSTS
+  --names \
+    /lifehq/dev/DATABASE_URL \
+    /lifehq/dev/GOOGLE_CLIENT_ID \
+    /lifehq/dev/GOOGLE_CLIENT_SECRET \
+    /lifehq/dev/BETTER_AUTH_SECRET \
+    /lifehq/dev/STAGE \
+    /lifehq/dev/BETTER_AUTH_URL \
+    /lifehq/dev/BETTER_AUTH_TRUSTED_HOSTS
 ```
