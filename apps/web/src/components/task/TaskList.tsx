@@ -1,7 +1,7 @@
 "use client";
 
 import { CheckSquare, ChevronLeft, ChevronRight, X } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -30,9 +30,16 @@ export function TaskList() {
 	const [deleteId, setDeleteId] = useState<string | null>(null);
 
 	// Default: current user + incomplete
-	const [assigneeFilter, setAssigneeFilter] = useState<string>(
-		() => currentUserId ?? ALL_ASSIGNEES,
-	);
+	// Session loads asynchronously, so start with ALL_ASSIGNEES and update
+	// to the current user once the session resolves (only on first load).
+	const [assigneeFilter, setAssigneeFilter] = useState<string>(ALL_ASSIGNEES);
+	const filterInitialized = useRef(false);
+	useEffect(() => {
+		if (!filterInitialized.current && currentUserId) {
+			filterInitialized.current = true;
+			setAssigneeFilter(currentUserId);
+		}
+	}, [currentUserId]);
 	const [statusFilter, setStatusFilter] = useState<string>("incomplete");
 
 	const inputRef = useRef<HTMLInputElement>(null);
