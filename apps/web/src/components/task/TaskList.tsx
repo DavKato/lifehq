@@ -22,24 +22,24 @@ const UNASSIGNED = "unassigned";
 const ALL_STATUSES = "__all__";
 
 export function TaskList() {
-	const { data: session } = authClient.useSession();
+	const { data: session, isPending: sessionPending } =
+		authClient.useSession();
 	const currentUserId = session?.user?.id;
 
 	const [title, setTitle] = useState("");
 	const [page, setPage] = useState(1);
 	const [deleteId, setDeleteId] = useState<string | null>(null);
 
-	// Default: current user + incomplete
-	// Session loads asynchronously, so start with ALL_ASSIGNEES and update
-	// to the current user once the session resolves (only on first load).
-	const [assigneeFilter, setAssigneeFilter] = useState<string>(ALL_ASSIGNEES);
+	// null = not yet initialized (session still loading)
+	// Once session resolves, default to the current user's ID.
+	const [assigneeFilter, setAssigneeFilter] = useState<string | null>(null);
 	const filterInitialized = useRef(false);
 	useEffect(() => {
-		if (!filterInitialized.current && currentUserId) {
+		if (!filterInitialized.current && !sessionPending) {
 			filterInitialized.current = true;
-			setAssigneeFilter(currentUserId);
+			setAssigneeFilter(currentUserId ?? ALL_ASSIGNEES);
 		}
-	}, [currentUserId]);
+	}, [sessionPending, currentUserId]);
 	const [statusFilter, setStatusFilter] = useState<string>("incomplete");
 
 	const inputRef = useRef<HTMLInputElement>(null);
@@ -47,15 +47,26 @@ export function TaskList() {
 	const membersQuery = api.household.members.useQuery();
 	const members = membersQuery.data ?? [];
 
+	// null means session is still loading — use ALL_ASSIGNEES as a safe
+	// placeholder for building the query input (query is disabled anyway).
+	const effectiveAssigneeFilter = assigneeFilter ?? ALL_ASSIGNEES;
+
 	// Build query input from filter state
 	const assigneeId =
-		assigneeFilter === ALL_ASSIGNEES ? undefined : assigneeFilter;
+		effectiveAssigneeFilter === ALL_ASSIGNEES
+			? undefined
+			: effectiveAssigneeFilter;
 	const status =
 		statusFilter === ALL_STATUSES
 			? undefined
 			: (statusFilter as "incomplete" | "completed");
 
-	const tasksQuery = api.task.list.useQuery({ page, assigneeId, status });
+	// Do not fetch tasks until the session has resolved so the first request
+	// already carries the correct assignee filter (avoids a flash of all tasks).
+	const tasksQuery = api.task.list.useQuery(
+		{ page, assigneeId, status },
+		{ enabled: assigneeFilter !== null },
+	);
 	const utils = api.useUtils();
 
 	const createMutation = api.task.create.useMutation({
@@ -83,13 +94,14 @@ export function TaskList() {
 	}
 
 	function clearFilters() {
-		setAssigneeFilter(ALL_ASSIGNEES);
+		setAssigneeFilter(currentUserId ?? ALL_ASSIGNEES);
 		setStatusFilter(ALL_STATUSES);
 		setPage(1);
 	}
 
 	const isFiltered =
-		assigneeFilter !== ALL_ASSIGNEES || statusFilter !== ALL_STATUSES;
+		effectiveAssigneeFilter !== ALL_ASSIGNEES ||
+		statusFilter !== ALL_STATUSES;
 
 	const taskList = tasksQuery.data?.tasks ?? [];
 	const totalPages = tasksQuery.data?.totalPages ?? 1;
@@ -112,8 +124,9 @@ export function TaskList() {
 
 			<div className="flex items-center gap-2 flex-wrap">
 				<Select
-					value={assigneeFilter}
+					value={effectiveAssigneeFilter}
 					onValueChange={handleAssigneeChange}
+					disabled={assigneeFilter === null}
 				>
 					<SelectTrigger className="w-44">
 						<SelectValue placeholder="Assignee" />
@@ -155,26 +168,28 @@ export function TaskList() {
 			</div>
 
 			<div className="space-y-2">
-				{tasksQuery.isLoading && (
+				{(assigneeFilter === null || tasksQuery.isLoading) && (
 					<p className="text-sm text-muted-foreground">Loading…</p>
 				)}
 
-				{!tasksQuery.isLoading && taskList.length === 0 && (
-					<Card>
-						<CardContent className="flex flex-col items-center justify-center gap-3 py-12 text-center">
-							<CheckSquare className="h-10 w-10 text-muted-foreground" />
-							<div>
-								<p className="font-medium text-muted-foreground">
-									No tasks yet
-								</p>
-								<p className="text-sm text-muted-foreground">
-									Type a task above and press Enter to get
-									started
-								</p>
-							</div>
-						</CardContent>
-					</Card>
-				)}
+				{assigneeFilter !== null &&
+					!tasksQuery.isLoading &&
+					taskList.length === 0 && (
+						<Card>
+							<CardContent className="flex flex-col items-center justify-center gap-3 py-12 text-center">
+								<CheckSquare className="h-10 w-10 text-muted-foreground" />
+								<div>
+									<p className="font-medium text-muted-foreground">
+										No tasks yet
+									</p>
+									<p className="text-sm text-muted-foreground">
+										Type a task above and press Enter to get
+										started
+									</p>
+								</div>
+							</CardContent>
+						</Card>
+					)}
 
 				{taskList.map((task) => (
 					<TaskRow
