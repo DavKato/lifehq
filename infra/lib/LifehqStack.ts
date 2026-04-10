@@ -1,10 +1,6 @@
 import * as path from "node:path";
 import { CfnOutput, Duration, Stack, type StackProps } from "aws-cdk-lib";
-import {
-	CorsHttpMethod,
-	HttpApi,
-	HttpMethod,
-} from "aws-cdk-lib/aws-apigatewayv2";
+import { HttpApi, HttpMethod } from "aws-cdk-lib/aws-apigatewayv2";
 import { HttpLambdaIntegration } from "aws-cdk-lib/aws-apigatewayv2-integrations";
 import { Architecture, Runtime } from "aws-cdk-lib/aws-lambda";
 import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
@@ -74,10 +70,12 @@ export class LifehqStack extends Stack {
 				externalModules: [],
 			},
 			environment: {
-				// Resolved from SSM at synth time
 				STAGE: stageParam,
 				BETTER_AUTH_URL: betterAuthUrlParam,
 				BETTER_AUTH_TRUSTED_HOSTS: betterAuthTrustedHostsParam,
+				// Fastify @fastify/cors reads CORS_ORIGINS; same value as
+				// BETTER_AUTH_TRUSTED_HOSTS (the frontend URL).
+				CORS_ORIGINS: betterAuthTrustedHostsParam,
 				DATABASE_URL: databaseUrlParam,
 				GOOGLE_CLIENT_ID: googleClientIdParam,
 				GOOGLE_CLIENT_SECRET: googleClientSecretParam,
@@ -85,15 +83,10 @@ export class LifehqStack extends Stack {
 			},
 		});
 
-		// HTTP API Gateway
+		// HTTP API Gateway — CORS is handled by @fastify/cors in the Lambda,
+		// not here, because API Gateway CORS does not resolve SSM dynamic refs.
 		const httpApi = new HttpApi(this, "HttpApi", {
 			apiName: `lifehq-${stage}`,
-			corsPreflight: {
-				allowHeaders: ["Content-Type", "Authorization", "Cookie"],
-				allowMethods: [CorsHttpMethod.ANY],
-				allowOrigins: [betterAuthTrustedHostsParam],
-				allowCredentials: true,
-			},
 		});
 
 		const lambdaIntegration = new HttpLambdaIntegration(
