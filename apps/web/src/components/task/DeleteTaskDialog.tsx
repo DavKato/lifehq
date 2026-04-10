@@ -1,6 +1,3 @@
-"use client";
-
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
 	Dialog,
@@ -10,27 +7,20 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
-import { api } from "@/lib/api";
 
 type DeleteTaskDialogProps = {
 	id: string | null;
+	isPending: boolean;
+	onConfirm: () => void;
 	onClose: () => void;
 };
 
-export function DeleteTaskDialog({ id, onClose }: DeleteTaskDialogProps) {
-	const utils = api.useUtils();
-
-	const deleteMutation = api.task.delete.useMutation({
-		onSuccess: () => {
-			onClose();
-			utils.task.list.invalidate();
-			toast.success("Task deleted");
-		},
-		onError: (err) => {
-			toast.error(`Failed to delete task: ${err.message}`);
-		},
-	});
-
+export function DeleteTaskDialog({
+	id,
+	isPending,
+	onConfirm,
+	onClose,
+}: DeleteTaskDialogProps) {
 	return (
 		<Dialog
 			open={!!id}
@@ -51,12 +41,10 @@ export function DeleteTaskDialog({ id, onClose }: DeleteTaskDialogProps) {
 					</Button>
 					<Button
 						variant="destructive"
-						disabled={deleteMutation.isPending}
-						onClick={() => {
-							if (id) deleteMutation.mutate({ id });
-						}}
+						disabled={isPending}
+						onClick={onConfirm}
 					>
-						{deleteMutation.isPending ? "Deleting..." : "Delete"}
+						{isPending ? "Deleting..." : "Delete"}
 					</Button>
 				</DialogFooter>
 			</DialogContent>

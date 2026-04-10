@@ -2,6 +2,7 @@
 
 import { CheckSquare, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useRef, useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -68,6 +69,17 @@ export function TaskList() {
 			utils.task.list.invalidate();
 			setTitle("");
 			inputRef.current?.focus();
+		},
+	});
+
+	const deleteMutation = api.task.delete.useMutation({
+		onSuccess: () => {
+			setDeleteId(null);
+			utils.task.list.invalidate();
+			toast.success("Task deleted");
+		},
+		onError: (err) => {
+			toast.error(`Failed to delete task: ${err.message}`);
 		},
 	});
 
@@ -191,6 +203,7 @@ export function TaskList() {
 						task={task}
 						members={members}
 						onDelete={setDeleteId}
+						onDirectDelete={(id) => deleteMutation.mutate({ id })}
 					/>
 				))}
 			</div>
@@ -221,7 +234,14 @@ export function TaskList() {
 				</div>
 			)}
 
-			<DeleteTaskDialog id={deleteId} onClose={() => setDeleteId(null)} />
+			<DeleteTaskDialog
+				id={deleteId}
+				isPending={deleteMutation.isPending}
+				onConfirm={() => {
+					if (deleteId) deleteMutation.mutate({ id: deleteId });
+				}}
+				onClose={() => setDeleteId(null)}
+			/>
 		</div>
 	);
 }
