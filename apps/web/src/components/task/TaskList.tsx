@@ -1,7 +1,7 @@
 "use client";
 
 import { CheckSquare, ChevronLeft, ChevronRight, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -30,16 +30,9 @@ export function TaskList() {
 	const [page, setPage] = useState(1);
 	const [deleteId, setDeleteId] = useState<string | null>(null);
 
-	// null = not yet initialized (session still loading)
-	// Once session resolves, default to the current user's ID.
+	// null = user hasn't made an explicit selection yet; derive the default
+	// from the session once it resolves.
 	const [assigneeFilter, setAssigneeFilter] = useState<string | null>(null);
-	const filterInitialized = useRef(false);
-	useEffect(() => {
-		if (!filterInitialized.current && !sessionPending) {
-			filterInitialized.current = true;
-			setAssigneeFilter(currentUserId ?? ALL_ASSIGNEES);
-		}
-	}, [sessionPending, currentUserId]);
 	const [statusFilter, setStatusFilter] = useState<string>("incomplete");
 
 	const inputRef = useRef<HTMLInputElement>(null);
@@ -47,9 +40,10 @@ export function TaskList() {
 	const membersQuery = api.household.members.useQuery();
 	const members = membersQuery.data ?? [];
 
-	// null means session is still loading — use ALL_ASSIGNEES as a safe
-	// placeholder for building the query input (query is disabled anyway).
-	const effectiveAssigneeFilter = assigneeFilter ?? ALL_ASSIGNEES;
+	// Derive the effective filter at render time — no effect needed.
+	// null (no explicit choice) → default to current user → fall back to ALL_ASSIGNEES.
+	const effectiveAssigneeFilter =
+		assigneeFilter ?? currentUserId ?? ALL_ASSIGNEES;
 
 	// Build query input from filter state
 	const assigneeId =
@@ -65,7 +59,7 @@ export function TaskList() {
 	// already carries the correct assignee filter (avoids a flash of all tasks).
 	const tasksQuery = api.task.list.useQuery(
 		{ page, assigneeId, status },
-		{ enabled: assigneeFilter !== null },
+		{ enabled: !sessionPending },
 	);
 	const utils = api.useUtils();
 
@@ -126,7 +120,7 @@ export function TaskList() {
 				<Select
 					value={effectiveAssigneeFilter}
 					onValueChange={handleAssigneeChange}
-					disabled={assigneeFilter === null}
+					disabled={sessionPending}
 				>
 					<SelectTrigger className="w-44">
 						<SelectValue placeholder="Assignee" />
@@ -168,11 +162,11 @@ export function TaskList() {
 			</div>
 
 			<div className="space-y-2">
-				{(assigneeFilter === null || tasksQuery.isLoading) && (
+				{(sessionPending || tasksQuery.isLoading) && (
 					<p className="text-sm text-muted-foreground">Loading…</p>
 				)}
 
-				{assigneeFilter !== null &&
+				{!sessionPending &&
 					!tasksQuery.isLoading &&
 					taskList.length === 0 && (
 						<Card>
