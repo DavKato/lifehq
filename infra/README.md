@@ -30,51 +30,21 @@ cdk bootstrap aws://<account-id>/ap-northeast-1
 
 Run this in both the dev and prod accounts. CDK creates an S3 bucket and IAM roles it needs to manage assets.
 
-### 2. Create the OIDC provider and deploy role
+### 2. Deploy the bootstrap stack
 
-The GitHub Actions workflow uses OIDC federation — no long-lived IAM keys are stored anywhere.
+The bootstrap stack provisions the GitHub Actions OIDC identity provider, the deploy IAM role, and the three non-sensitive SSM parameters — all from a single CDK deploy command:
 
-In each AWS account, create an IAM OIDC identity provider:
-
-- **Provider URL**: `https://token.actions.githubusercontent.com`
-- **Audience**: `sts.amazonaws.com`
-
-Then create an IAM role (`lifehq-deploy-role` or similar) with:
-
-- **Trust policy** — allow GitHub Actions to assume it via OIDC:
-
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Principal": {
-        "Federated": "arn:aws:iam::<account-id>:oidc-provider/token.actions.githubusercontent.com"
-      },
-      "Action": "sts:AssumeRoleWithWebIdentity",
-      "Condition": {
-        "StringEquals": {
-          "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
-        },
-        "StringLike": {
-          "token.actions.githubusercontent.com:sub": "repo:<github-org>/<repo-name>:environment:<dev|prod>"
-        }
-      }
-    }
-  ]
-}
+```bash
+pnpm --filter infra cdk deploy LifehqBootstrapStack-dev \
+  -c betterAuthUrl=https://placeholder.invalid \
+  -c betterAuthTrustedHosts=https://your-app.vercel.app
 ```
 
-- **Permissions policy**: attach `AdministratorAccess` (or a scoped policy covering CDK bootstrap role pass, Lambda, API Gateway, SSM read, CloudFormation, S3, IAM).
+After deploy, the stack prints the deploy role ARN as a `CfnOutput`. Copy it — you'll need it for GitHub Environments (`AWS_ROLE_ARN`).
 
-Record the role ARN — you'll need it for GitHub Environments.
+### 3. Create sensitive SSM parameters (manual — only remaining step)
 
-### 3. Create SSM parameters
-
-In each account, create the following SSM parameters (standard tier, free). Sensitive values use `SecureString` (KMS-encrypted); non-sensitive values use `String`.
-
-**Sensitive config (SecureString):**
+CloudFormation does not support creating `SecureString` parameters natively. Create these four parameters manually in each account:
 
 ```bash
 aws ssm put-parameter \
@@ -96,28 +66,6 @@ aws ssm put-parameter \
   --name /lifehq/dev/BETTER_AUTH_SECRET \
   --value "..." \
   --type SecureString
-```
-
-**Non-sensitive config (String):**
-
-```bash
-# Stage identifier
-aws ssm put-parameter \
-  --name /lifehq/dev/STAGE \
-  --value dev \
-  --type String
-
-# Placeholder for first deploy — update after deploy (see below)
-aws ssm put-parameter \
-  --name /lifehq/dev/BETTER_AUTH_URL \
-  --value https://placeholder.invalid \
-  --type String
-
-# Vercel frontend URL (allow CORS and auth trusted hosts)
-aws ssm put-parameter \
-  --name /lifehq/dev/BETTER_AUTH_TRUSTED_HOSTS \
-  --value https://your-app.vercel.app \
-  --type String
 ```
 
 ### 5. Configure GitHub Environments
