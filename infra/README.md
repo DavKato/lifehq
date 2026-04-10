@@ -25,7 +25,7 @@ These steps must be completed once per account before the first deploy.
 ### 1. CDK bootstrap
 
 ```bash
-cdk bootstrap aws://<account-id>/eu-west-1
+cdk bootstrap aws://<account-id>/ap-northeast-1
 ```
 
 Run this in both the dev and prod accounts. CDK creates an S3 bucket and IAM roles it needs to manage assets.
@@ -158,7 +158,7 @@ The workflow:
 ```bash
 aws ssm put-parameter \
   --name /lifehq/dev/BETTER_AUTH_URL \
-  --value https://<api-id>.execute-api.eu-west-1.amazonaws.com \
+  --value https://<api-id>.execute-api.ap-northeast-1.amazonaws.com \
   --overwrite
 ```
 
@@ -182,7 +182,6 @@ pnpm --filter infra cdk diff LifehqStack-dev
 Environment variables required for `deploy` and `diff`:
 - `CDK_DEV_ACCOUNT` — dev AWS account ID
 - `CDK_PROD_ACCOUNT` — prod AWS account ID
-- `CDK_REGION` — AWS region (default: `eu-west-1`)
 
 ---
 
