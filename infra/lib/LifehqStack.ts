@@ -59,6 +59,9 @@ export class LifehqStack extends Stack {
 				target: "node22",
 				// Suppress tsx/esbuild warnings about optional native deps
 				externalModules: [],
+				// Fastify/avvio are CJS-only and use dynamic require() internally.
+				// This shim makes require() work inside an ESM bundle.
+				banner: "import { createRequire } from 'module'; const require = createRequire(import.meta.url);",
 			},
 			environment: {
 				STAGE: stageParam,
