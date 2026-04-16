@@ -1,5 +1,5 @@
 {
-	"app": "tsx bin/app.ts",
+	"app": "tsx --env-file-if-exists=../.env bin/app.ts",
 	"watch": {
 		"include": ["**"],
 		"exclude": [
