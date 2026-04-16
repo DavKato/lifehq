@@ -3,7 +3,7 @@ import { config } from "./config/env";
 import { runMigrations } from "./db/migrate";
 import { runSeed } from "./db/seed";
 
-await runMigrations();
+await runMigrations(config.DATABASE_URL);
 await runSeed();
 
 const app = await buildApp();
