@@ -1,10 +1,24 @@
 import awsLambdaFastify from "aws-lambda-fastify";
+import type { FastifyInstance } from "fastify";
 import { fetchSsmSecrets } from "./config/ssm";
 
-await fetchSsmSecrets();
+let proxy: ReturnType<typeof awsLambdaFastify> | null = null;
 
-// Dynamic import defers env.ts evaluation until process.env is populated above.
-const { buildApp } = await import("./app");
-const app = await buildApp();
+// Lazy init: deferred to first INVOKE so the Parameters & Secrets extension
+// is guaranteed ready before fetchSsmSecrets() is called.
+async function getProxy() {
+	if (!proxy) {
+		await fetchSsmSecrets();
+		const { buildApp } = await import("./app");
+		const app: FastifyInstance = await buildApp();
+		proxy = awsLambdaFastify(app);
+	}
+	return proxy;
+}
 
-export const handler = awsLambdaFastify(app);
+export const handler = async (
+	event: unknown,
+	context: unknown,
+): Promise<unknown> => {
+	return (await getProxy())(event as never, context as never);
+};
