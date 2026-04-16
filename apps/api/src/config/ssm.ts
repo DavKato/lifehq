@@ -20,8 +20,10 @@ export async function fetchSsmSecrets(): Promise<void> {
 			const res = await fetch(url, {
 				headers: { "X-Aws-Parameters-Secrets-Token": token },
 			});
-			if (!res.ok)
-				throw new Error(`SSM fetch failed for ${key}: ${res.status}`);
+			if (!res.ok) {
+				const body = await res.text();
+				throw new Error(`SSM fetch failed for ${key}: ${res.status} — ${body}`);
+			}
 			const { Parameter } = (await res.json()) as {
 				Parameter: { Value: string };
 			};
